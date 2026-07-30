@@ -272,6 +272,7 @@ export async function saveServiceAction(
     name: parsed.data.name.trim(),
     slug: slugify(parsed.data.name),
     description: parsed.data.description?.trim() || null,
+    image_path: parsed.data.imagePath || null,
     is_active: parsed.data.isActive,
   };
 

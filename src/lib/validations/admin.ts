@@ -47,6 +47,7 @@ export const serviceFormSchema = z.object({
   id: z.string().uuid().optional(),
   name: z.string().trim().min(2, "Enter a service name."),
   description: z.string().trim().optional(),
+  imagePath: z.string().trim().optional().nullable(),
   isActive: z.boolean(),
 });
 

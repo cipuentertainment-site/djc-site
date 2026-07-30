@@ -164,7 +164,7 @@ export async function getAdminConfigData(): Promise<AdminDataResult<AdminConfigD
         .select("event_type_id,service_id,is_active"),
       supabase
         .from("services")
-        .select("id,name,slug,description,is_active,sort_order")
+        .select("id,name,slug,description,image_path,is_active,sort_order")
         .order("sort_order")
         .order("name"),
       supabase

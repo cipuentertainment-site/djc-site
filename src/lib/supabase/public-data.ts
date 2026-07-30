@@ -57,7 +57,7 @@ export async function getPublicBookingOptions(): Promise<PublicDataResult> {
         .eq("is_active", true),
       supabase
         .from("services")
-        .select("id,name,slug,description")
+        .select("id,name,slug,description,image_path")
         .eq("is_active", true)
         .order("sort_order")
         .order("name"),

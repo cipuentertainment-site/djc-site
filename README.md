@@ -29,6 +29,14 @@ NEXT_PUBLIC_SUPABASE_URL=https://your-project.supabase.co
 NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY=your-supabase-publishable-key
 NEXT_PUBLIC_APP_URL=http://localhost:3000
 ADMIN_SESSION_SECRET=replace-with-a-long-random-server-only-secret
+SUPABASE_SERVICE_ROLE_KEY=replace-with-your-server-only-service-role-key
+MPESA_ENVIRONMENT=sandbox
+MPESA_CONSUMER_KEY=replace-with-your-daraja-consumer-key
+MPESA_CONSUMER_SECRET=replace-with-your-daraja-consumer-secret
+MPESA_SHORTCODE=174379
+MPESA_PASSKEY=replace-with-your-daraja-passkey
+MPESA_CALLBACK_URL=https://your-public-callback-url/api/payments/mpesa/callback
+MPESA_TRANSACTION_TYPE=CustomerPayBillOnline
 ```
 
 Do not commit real Supabase credentials.
@@ -36,6 +44,10 @@ Do not commit real Supabase credentials.
 `NEXT_PUBLIC_SUPABASE_ANON_KEY` is still supported as a fallback for older local setups, but new environments should use `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`.
 
 Add the same variables in Vercel Project Settings. Set `NEXT_PUBLIC_APP_URL` to the production application URL.
+
+`SUPABASE_SERVICE_ROLE_KEY` and all `MPESA_*` values are server-only. Do not expose them with a `NEXT_PUBLIC_` prefix.
+
+For local Daraja sandbox testing, `MPESA_CALLBACK_URL` must be publicly reachable by Safaricom. A plain `localhost` callback URL can initiate STK Push but will not receive the payment callback unless you expose the app through a tunnel or deploy a preview URL.
 
 ## Development
 
@@ -82,6 +94,7 @@ Then run:
 
 - `supabase/migrations/202607300002_admin_mvp_extensions.sql`
 - `supabase/migrations/202607300003_admin_authentication.sql`
+- `supabase/migrations/202607310001_mpesa_service_images.sql`
 
 The migration creates:
 
@@ -95,6 +108,8 @@ The migration creates:
 - `booking_services`
 - `admin_profiles`
 - `event_type_services` in the admin MVP extension
+- `reservation_payments`
+- `service-images` Supabase Storage bucket
 
 It also creates enums, indexes, updated-at triggers, a confirmed-capacity trigger, and `get_booking_date_availability(from_date, to_date)` for customer date availability.
 
@@ -176,7 +191,7 @@ The admin interface is implemented against the real Supabase schema. It does not
 
 ## Current Stage Boundaries
 
-- Payments are not integrated.
-- Booking insertion from the public form is intentionally not enabled until a real reservation-fee payment flow exists.
+- M-Pesa Daraja sandbox STK Push is integrated through server routes.
+- Booking insertion from the public form happens only after the Daraja callback marks the reservation payment successful.
 - Initial services (`DJ`, `MC`, `Sound System`) are seeded as real business configuration.
 - Event types, size ranges, and prices are not seeded because the provided values are examples and should be configured in Supabase.

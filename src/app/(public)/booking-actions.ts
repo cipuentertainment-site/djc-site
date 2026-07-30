@@ -15,8 +15,11 @@ export type BookingQuoteResult =
         service: PublicService;
         price: number;
       }>;
+      eventTypeName: string;
+      eventSizeLabel: string;
+      eventSizeRange: string;
       dateAvailabilityMessage: string;
-      canSubmitBooking: false;
+      canSubmitBooking: true;
       submissionMessage: string;
     }
   | {
@@ -61,16 +64,6 @@ export async function prepareBookingQuoteAction(
 
   if (!eventType || !eventSize) {
     return { ok: false, message: "Selected event configuration is unavailable." };
-  }
-
-  if (
-    parsed.data.attendeeCount < eventSize.min_attendees ||
-    parsed.data.attendeeCount > eventSize.max_attendees
-  ) {
-    return {
-      ok: false,
-      message: "Attendee count does not match the selected event size.",
-    };
   }
 
   const dateAvailability = await getDateAvailability(parsed.data.eventDate);
@@ -124,9 +117,11 @@ export async function prepareBookingQuoteAction(
     transportDisclaimer:
       data.settings?.transport_disclaimer ?? "Transport charges are quoted separately.",
     selectedServices: services,
+    eventTypeName: eventType.name,
+    eventSizeLabel: eventSize.label,
+    eventSizeRange: `${eventSize.min_attendees}-${eventSize.max_attendees} guests`,
     dateAvailabilityMessage: `${dateAvailability.confirmed_count}/${dateAvailability.maximum_events_per_day} confirmed bookings on this date.`,
-    canSubmitBooking: false,
-    submissionMessage:
-      "Payment integration is not connected yet, so this quote has not submitted a booking request.",
+    canSubmitBooking: true,
+    submissionMessage: "Review the estimate, then pay the reservation fee with M-Pesa.",
   };
 }

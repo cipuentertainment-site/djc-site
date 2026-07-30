@@ -5,6 +5,7 @@ import { Save } from "lucide-react";
 
 import { saveServiceAction, type AdminActionResult } from "@/app/admin/actions";
 import { ResultMessage } from "@/components/admin/result-message";
+import { ServiceImageUploader } from "@/components/admin/service-image-uploader";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -19,6 +20,7 @@ type ServiceFormProps = {
 export function ServiceForm({ service }: ServiceFormProps) {
   const [name, setName] = useState(service?.name ?? "");
   const [description, setDescription] = useState(service?.description ?? "");
+  const [imagePath, setImagePath] = useState(service?.image_path ?? "");
   const [isActive, setIsActive] = useState(service?.is_active ?? true);
   const [result, setResult] = useState<AdminActionResult>();
   const [isPending, startTransition] = useTransition();
@@ -29,6 +31,7 @@ export function ServiceForm({ service }: ServiceFormProps) {
         id: service?.id,
         name,
         description,
+        imagePath,
         isActive,
       });
       setResult(actionResult);
@@ -59,6 +62,14 @@ export function ServiceForm({ service }: ServiceFormProps) {
             />
             Active
           </label>
+        </div>
+        <div className="space-y-2">
+          <Label>Service image</Label>
+          <ServiceImageUploader
+            value={imagePath}
+            onChange={setImagePath}
+            serviceId={service?.id}
+          />
         </div>
         <div className="space-y-2">
           <Label htmlFor="service-description">Description</Label>

@@ -24,6 +24,7 @@ export type PublicService = {
   name: string;
   slug: string;
   description: string | null;
+  image_path: string | null;
   is_active?: boolean;
   sort_order?: number;
 };
