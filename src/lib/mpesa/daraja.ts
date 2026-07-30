@@ -27,6 +27,19 @@ export type StkPushResult =
       message: string;
     };
 
+export type StkQueryResult =
+  | {
+      ok: true;
+      merchantRequestId?: string;
+      checkoutRequestId?: string;
+      resultCode: number;
+      resultDescription: string;
+    }
+  | {
+      ok: false;
+      message: string;
+    };
+
 async function getAccessToken() {
   const config = getMpesaConfig();
 
@@ -70,6 +83,65 @@ async function getAccessToken() {
   };
 
   return cachedToken.token;
+}
+
+export async function queryStkPush(checkoutRequestId: string): Promise<StkQueryResult> {
+  const config = getMpesaConfig();
+
+  if (!config) {
+    return { ok: false, message: "M-Pesa is not configured." };
+  }
+
+  const accessToken = await getAccessToken();
+
+  if (!accessToken) {
+    return { ok: false, message: "Unable to authenticate with M-Pesa." };
+  }
+
+  const timestamp = new Date()
+    .toISOString()
+    .replace(/[-:TZ.]/g, "")
+    .slice(0, 14);
+  const password = Buffer.from(
+    `${config.shortcode}${config.passkey}${timestamp}`,
+  ).toString("base64");
+  const response = await fetch(`${config.baseUrl}/mpesa/stkpushquery/v1/query`, {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      BusinessShortCode: config.shortcode,
+      Password: password,
+      Timestamp: timestamp,
+      CheckoutRequestID: checkoutRequestId,
+    }),
+    cache: "no-store",
+  });
+
+  const data = (await response.json()) as {
+    MerchantRequestID?: string;
+    CheckoutRequestID?: string;
+    ResultCode?: string | number;
+    ResultDesc?: string;
+    errorMessage?: string;
+  };
+
+  if (!response.ok || data.ResultCode === undefined) {
+    return {
+      ok: false,
+      message: data.errorMessage ?? "M-Pesa payment status could not be checked.",
+    };
+  }
+
+  return {
+    ok: true,
+    merchantRequestId: data.MerchantRequestID,
+    checkoutRequestId: data.CheckoutRequestID,
+    resultCode: Number(data.ResultCode),
+    resultDescription: data.ResultDesc ?? "M-Pesa status checked.",
+  };
 }
 
 export async function initiateStkPush(input: StkPushInput): Promise<StkPushResult> {

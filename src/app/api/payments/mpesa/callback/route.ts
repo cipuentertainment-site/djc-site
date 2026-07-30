@@ -45,10 +45,11 @@ export async function POST(request: Request) {
     .maybeSingle();
 
   if (payment.error || !payment.data) {
-    return NextResponse.json({ ResultCode: 0, ResultDesc: "Accepted" });
-  }
+    console.warn("M-Pesa callback received for unknown checkout request.", {
+      checkoutRequestId: callback.CheckoutRequestID,
+      hasError: Boolean(payment.error),
+    });
 
-  if (payment.data.status === "success" && payment.data.booking_id) {
     return NextResponse.json({ ResultCode: 0, ResultDesc: "Accepted" });
   }
 
@@ -71,8 +72,30 @@ export async function POST(request: Request) {
     })
     .eq("id", payment.data.id);
 
-  if (!update.error && callback.ResultCode === 0) {
-    await finalizeBookingFromPayment(payment.data.id);
+  if (update.error) {
+    console.error("M-Pesa callback could not update payment record.", {
+      paymentId: payment.data.id,
+      checkoutRequestId: callback.CheckoutRequestID,
+      message: update.error.message,
+    });
+  }
+
+  if (!update.error && callback.ResultCode === 0 && !payment.data.booking_id) {
+    const finalized = await finalizeBookingFromPayment(payment.data.id);
+
+    if (!finalized.ok) {
+      console.error("M-Pesa callback payment succeeded but booking was not finalized.", {
+        paymentId: payment.data.id,
+        message: finalized.message,
+      });
+    }
+  }
+
+  if (!update.error && callback.ResultCode === 0 && payment.data.booking_id && receipt) {
+    await supabase
+      .from("bookings")
+      .update({ reservation_fee_payment_reference: String(receipt) })
+      .eq("id", payment.data.booking_id);
   }
 
   return NextResponse.json({ ResultCode: 0, ResultDesc: "Accepted" });

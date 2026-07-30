@@ -193,5 +193,6 @@ The admin interface is implemented against the real Supabase schema. It does not
 
 - M-Pesa Daraja sandbox STK Push is integrated through server routes.
 - Booking insertion from the public form happens only after the Daraja callback marks the reservation payment successful.
+- The payment status route also performs a server-side STK Query reconciliation for paid requests when a Daraja callback is delayed or not delivered.
 - Initial services (`DJ`, `MC`, `Sound System`) are seeded as real business configuration.
 - Event types, size ranges, and prices are not seeded because the provided values are examples and should be configured in Supabase.
