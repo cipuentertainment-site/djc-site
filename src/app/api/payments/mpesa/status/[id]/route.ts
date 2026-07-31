@@ -18,6 +18,14 @@ function isStillProcessing(resultCode: number, resultDescription: string) {
   );
 }
 
+function isMissingTransaction(message: string) {
+  return message.toLowerCase().includes("transaction does not exist");
+}
+
+function isOlderThan(createdAt: string, milliseconds: number) {
+  return Date.now() - new Date(createdAt).getTime() > milliseconds;
+}
+
 export async function GET(_request: Request, { params }: StatusRouteProps) {
   const { id } = await params;
   const supabase = createSupabaseAdminClient();
@@ -31,7 +39,7 @@ export async function GET(_request: Request, { params }: StatusRouteProps) {
 
   const payment = await supabase
     .from("reservation_payments")
-    .select("id,status,booking_id,result_code,result_description,checkout_request_id,merchant_request_id,internal_reference,mpesa_receipt_number")
+    .select("id,status,booking_id,result_code,result_description,checkout_request_id,merchant_request_id,internal_reference,mpesa_receipt_number,created_at")
     .eq("id", id)
     .single();
 
@@ -45,6 +53,42 @@ export async function GET(_request: Request, { params }: StatusRouteProps) {
 
   if (canReconcile && payment.data.checkout_request_id) {
     const mpesaStatus = await queryStkPush(payment.data.checkout_request_id);
+
+    if (!mpesaStatus.ok && isMissingTransaction(mpesaStatus.message)) {
+      if (isOlderThan(payment.data.created_at, 90_000)) {
+        const message =
+          "M-Pesa did not send a prompt to this number. Check the number or try another M-Pesa line.";
+        const update = await supabase
+          .from("reservation_payments")
+          .update({
+            status: "failed",
+            result_description: message,
+          })
+          .eq("id", payment.data.id)
+          .select("id,status,booking_id,result_description")
+          .single();
+
+        if (!update.error && update.data) {
+          return NextResponse.json({
+            ok: true,
+            status: update.data.status,
+            bookingId: update.data.booking_id,
+            paymentReference: payment.data.internal_reference,
+            paymentReceipt: payment.data.mpesa_receipt_number,
+            message: update.data.result_description,
+          });
+        }
+      }
+
+      return NextResponse.json({
+        ok: true,
+        status: "pending",
+        bookingId: payment.data.booking_id,
+        paymentReference: payment.data.internal_reference,
+        paymentReceipt: payment.data.mpesa_receipt_number,
+        message: "M-Pesa is preparing the prompt. Keep your phone nearby.",
+      });
+    }
 
     if (mpesaStatus.ok && mpesaStatus.resultCode === 0) {
       const update = await supabase

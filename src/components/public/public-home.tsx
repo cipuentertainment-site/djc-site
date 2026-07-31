@@ -70,14 +70,14 @@ export function PublicHome({ options, status, errorMessage }: PublicHomeProps) {
 
             <nav className="relative z-10 flex items-center justify-between gap-3">
               <Link href="/" className="flex min-w-0 items-center gap-2 leading-tight">
-                <span className="flex h-10 w-16 shrink-0 items-center justify-center rounded-xl bg-white/95 px-1.5 py-1 shadow-lg">
+                <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-white/95 p-1.5 shadow-lg">
                   <Image
                     src="/brand/logo-transparent.png"
                     alt={`${businessName} logo`}
                     width={128}
                     height={64}
                     priority
-                    className="max-h-8 w-auto object-contain"
+                    className="max-h-6 max-w-6 object-contain"
                   />
                 </span>
                 <span className="min-w-0">
