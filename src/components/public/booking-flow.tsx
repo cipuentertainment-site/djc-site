@@ -9,7 +9,6 @@ import {
   Check,
   CheckCircle2,
   Copy,
-  Camera,
   Loader2,
   Smartphone,
   Sparkles,
@@ -63,6 +62,8 @@ type PaymentStatusResponse = {
   ok: boolean;
   status?: "pending" | "success" | "failed" | "cancelled" | "expired";
   bookingId?: string | null;
+  paymentReference?: string | null;
+  paymentReceipt?: string | null;
   message?: string | null;
 };
 
@@ -99,6 +100,7 @@ export function BookingFlow({ options, status, initialServiceIds }: BookingFlowP
   const [paymentMessage, setPaymentMessage] = useState("");
   const [bookingId, setBookingId] = useState<string | null>(null);
   const [referenceId, setReferenceId] = useState<string | null>(null);
+  const [paymentReceipt, setPaymentReceipt] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
 
   const settings = options.settings;
@@ -124,6 +126,7 @@ export function BookingFlow({ options, status, initialServiceIds }: BookingFlowP
     setPaymentMessage("");
     setBookingId(null);
     setReferenceId(null);
+    setPaymentReceipt(null);
   }
 
   function updateEventType(value: string) {
@@ -212,7 +215,8 @@ export function BookingFlow({ options, status, initialServiceIds }: BookingFlowP
       if (result.status === "success") {
         setPaymentState("success");
         setBookingId(result.bookingId ?? null);
-        setReferenceId(result.bookingId ?? paymentId);
+        setReferenceId(result.paymentReference ?? result.bookingId ?? paymentId);
+        setPaymentReceipt(result.paymentReceipt ?? null);
         setPaymentMessage("Request received. We will contact you to finalize the event.");
         return;
       }
@@ -497,6 +501,7 @@ export function BookingFlow({ options, status, initialServiceIds }: BookingFlowP
             paymentMessage={paymentMessage}
             bookingId={bookingId}
             referenceId={referenceId}
+            paymentReceipt={paymentReceipt}
             onReserve={reserveEvent}
           />
         )}
@@ -561,6 +566,7 @@ function Checkout({
   paymentMessage,
   bookingId,
   referenceId,
+  paymentReceipt,
   onReserve,
 }: {
   quote: Extract<BookingQuoteResult, { ok: true }> | null;
@@ -574,6 +580,7 @@ function Checkout({
   paymentMessage: string;
   bookingId: string | null;
   referenceId: string | null;
+  paymentReceipt: string | null;
   onReserve: () => void;
 }) {
   const [copied, setCopied] = useState(false);
@@ -601,21 +608,31 @@ function Checkout({
               <div className="mb-2 flex h-12 w-12 items-center justify-center rounded-full bg-emerald-600 text-white">
                 <CheckCircle2 className="h-6 w-6" aria-hidden="true" />
               </div>
-              <DialogTitle className="text-2xl font-black">Request received</DialogTitle>
+              <DialogTitle className="text-2xl font-black">Payment received</DialogTitle>
               <DialogDescription>
-                Your reservation payment was confirmed and your booking request was recorded.
+                Screenshot this receipt or copy the reference.
               </DialogDescription>
             </DialogHeader>
-            <div className="rounded-2xl border border-emerald-100 bg-emerald-50 p-4 text-sm text-emerald-950">
-              <p className="font-semibold">Take a screenshot of this confirmation.</p>
-              <p className="mt-1 text-emerald-900/75">
-                Keep the reference below in case support needs to trace your request.
-              </p>
+            <div className="space-y-2 rounded-2xl border border-black/10 bg-neutral-50 p-4 text-sm">
+              <ReceiptRow label="Event" value={quote.eventTypeName} />
+              <ReceiptRow
+                label="Size"
+                value={`${quote.eventSizeLabel} - ${quote.eventSizeRange}`}
+              />
+              <ReceiptRow
+                label="Reservation paid"
+                value={formatMoney(quote.reservationFeeAmount, quote.currency)}
+              />
+              <ReceiptRow
+                label="M-Pesa receipt"
+                value={paymentReceipt ?? "Pending from M-Pesa"}
+              />
+              <ReceiptRow label="Request reference" value={referenceId ?? "Pending"} />
             </div>
             {referenceId ? (
               <div className="rounded-2xl border border-black/10 bg-neutral-50 p-3">
                 <p className="text-xs font-bold uppercase tracking-[0.16em] text-neutral-400">
-                  Reference
+                  Trace reference
                 </p>
                 <div className="mt-2 flex items-center gap-2">
                   <code className="min-w-0 flex-1 truncate rounded-lg bg-white px-2 py-2 text-xs text-neutral-800">
@@ -628,10 +645,6 @@ function Checkout({
                 </div>
               </div>
             ) : null}
-            <div className="flex items-center gap-2 rounded-2xl bg-amber-50 p-3 text-sm text-neutral-700">
-              <Camera className="h-4 w-4 shrink-0 text-amber-700" aria-hidden="true" />
-              Screenshot this page before closing the browser.
-            </div>
           </DialogContent>
         </Dialog>
 
@@ -646,9 +659,17 @@ function Checkout({
         </div>
         <div className="grid gap-3 sm:grid-cols-2">
           <SummaryItem label="Event" value={quote.eventTypeName} />
+          <SummaryItem label="Size" value={`${quote.eventSizeLabel} - ${quote.eventSizeRange}`} />
           <SummaryItem label="Date" value={format(new Date(eventDate), "MMM d, yyyy")} />
-          <SummaryItem label="Services" value={quote.selectedServices.map((item) => item.service.name).join(", ")} />
           <SummaryItem label="Reservation" value={formatMoney(quote.reservationFeeAmount, quote.currency)} />
+        </div>
+        <div className="rounded-2xl border border-black/10 bg-white p-3">
+          <p className="text-xs font-bold uppercase tracking-[0.16em] text-neutral-400">
+            M-Pesa receipt
+          </p>
+          <p className="mt-1 font-semibold text-neutral-950">
+            {paymentReceipt ?? "Pending from M-Pesa"}
+          </p>
         </div>
         {referenceId ? (
           <div className="rounded-2xl border border-black/10 bg-neutral-50 p-3">
@@ -755,6 +776,15 @@ function Checkout({
           You are paying the reservation fee only. The full event amount is handled after the business contacts you.
         </p>
       )}
+    </div>
+  );
+}
+
+function ReceiptRow({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="flex justify-between gap-4 border-b border-black/5 pb-2 last:border-0 last:pb-0">
+      <span className="text-neutral-500">{label}</span>
+      <span className="text-right font-semibold text-neutral-950">{value}</span>
     </div>
   );
 }

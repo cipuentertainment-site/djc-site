@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useMemo, useState } from "react";
-import { ArrowRight, Check, Headphones, Phone } from "lucide-react";
+import { ArrowRight, Check, Headphones } from "lucide-react";
 
 import { ServiceImage } from "@/components/public/service-image";
 import { Button } from "@/components/ui/button";
@@ -19,7 +19,7 @@ export function PublicHome({ options, status, errorMessage }: PublicHomeProps) {
   const [selectedServiceIds, setSelectedServiceIds] = useState<string[]>([]);
   const settings = options.settings;
   const businessName = settings?.business_name ?? "DJC Entertainment";
-  const contact = settings?.business_phone ?? settings?.business_whatsapp;
+  const currentYear = new Date().getFullYear();
   const bookHref = useMemo(() => {
     const params = new URLSearchParams();
 
@@ -53,7 +53,7 @@ export function PublicHome({ options, status, errorMessage }: PublicHomeProps) {
               </span>
             </Link>
             <Button asChild size="sm" className="bg-neutral-950 text-white hover:bg-neutral-800">
-              <Link href={bookHref}>Book</Link>
+              <Link href={bookHref}>Book service</Link>
             </Button>
           </div>
         </header>
@@ -75,18 +75,10 @@ export function PublicHome({ options, status, errorMessage }: PublicHomeProps) {
             <div className="flex flex-col gap-3 sm:flex-row">
               <Button asChild className="h-12 bg-amber-400 text-black hover:bg-amber-300">
                 <Link href={bookHref}>
-                  Book an event
+                  Book a service
                   <ArrowRight className="h-4 w-4" />
                 </Link>
               </Button>
-              {contact ? (
-                <Button asChild variant="outline" className="h-12 border-neutral-300 bg-white/60 text-neutral-950 hover:bg-white">
-                  <a href={`tel:${contact}`}>
-                    <Phone className="h-4 w-4" />
-                    Call
-                  </a>
-                </Button>
-              ) : null}
             </div>
           </div>
 
@@ -104,7 +96,7 @@ export function PublicHome({ options, status, errorMessage }: PublicHomeProps) {
             </div>
 
             {status === "ready" && options.services.length ? (
-              <div className="grid gap-3 sm:grid-cols-2">
+              <div className="grid gap-2.5 sm:grid-cols-2">
                 {options.services.map((service) => {
                   const selected = selectedServiceIds.includes(service.id);
 
@@ -114,7 +106,7 @@ export function PublicHome({ options, status, errorMessage }: PublicHomeProps) {
                       type="button"
                       onClick={() => toggleService(service)}
                       className={cn(
-                        "group grid min-h-28 grid-cols-[84px_1fr] overflow-hidden rounded-2xl border bg-white text-left shadow-sm transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-400",
+                        "group grid min-h-24 grid-cols-[112px_1fr] overflow-hidden rounded-2xl border bg-white text-left shadow-sm transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-400",
                         selected
                           ? "border-neutral-950 shadow-[0_0_0_3px_rgba(251,191,36,0.35)]"
                           : "border-black/10 hover:border-amber-500/70 hover:shadow-md",
@@ -124,9 +116,9 @@ export function PublicHome({ options, status, errorMessage }: PublicHomeProps) {
                       <ServiceImage
                         imagePath={service.image_path}
                         name={service.name}
-                        className="h-full min-h-28 rounded-none"
+                        className="h-full min-h-24 rounded-none"
                       />
-                      <span className="flex min-w-0 flex-col justify-between gap-2 p-3">
+                      <span className="flex min-w-0 flex-col justify-between gap-1.5 p-2.5">
                         <span>
                           <span className="flex items-center justify-between gap-2">
                             <span className="text-base font-black">{service.name}</span>
@@ -141,7 +133,7 @@ export function PublicHome({ options, status, errorMessage }: PublicHomeProps) {
                               <Check className="h-3.5 w-3.5" aria-hidden="true" />
                             </span>
                           </span>
-                          <span className="mt-1 line-clamp-2 block text-sm leading-5 text-neutral-600">
+                          <span className="mt-1 line-clamp-1 block text-sm leading-5 text-neutral-600">
                             {service.description ?? "Available for configured events."}
                           </span>
                         </span>
@@ -175,7 +167,7 @@ export function PublicHome({ options, status, errorMessage }: PublicHomeProps) {
                 </div>
                 <Button asChild className="h-11 bg-amber-400 text-black hover:bg-amber-300">
                   <Link href={bookHref}>
-                    Book an event
+                    Book a service
                     <ArrowRight className="h-4 w-4" />
                   </Link>
                 </Button>
@@ -184,14 +176,25 @@ export function PublicHome({ options, status, errorMessage }: PublicHomeProps) {
           </div>
         </section>
 
-        <footer className="border-t border-black/10 py-5 text-sm text-neutral-600">
-          <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-            <p className="font-semibold text-neutral-900">{businessName}</p>
+        <footer className="border-t border-black/10 py-6 text-sm text-neutral-600">
+          <div className="grid gap-4 sm:grid-cols-[1fr_auto] sm:items-end">
+            <div>
+              <p className="font-black text-neutral-950">{businessName}</p>
+              <p className="mt-1 max-w-md text-xs leading-5 text-neutral-500">
+                Professional DJ, MC, and event sound services for weddings,
+                parties, corporate events, and celebrations.
+              </p>
+            </div>
+            <div className="space-y-1 text-left text-xs sm:text-right">
+              {settings?.business_phone ? <p>Phone: {settings.business_phone}</p> : null}
+              {settings?.business_whatsapp ? <p>WhatsApp: {settings.business_whatsapp}</p> : null}
+              {settings?.business_email ? <p>Email: {settings.business_email}</p> : null}
+              {settings?.business_location ? <p>Location: {settings.business_location}</p> : null}
+            </div>
+          </div>
+          <div className="mt-5 border-t border-black/10 pt-4 text-xs text-neutral-500">
             <p>
-              {settings?.business_email ??
-                settings?.business_phone ??
-                settings?.business_whatsapp ??
-                "Entertainment for weddings, parties, and events"}
+              &copy; {currentYear} {businessName}. All rights reserved.
             </p>
           </div>
         </footer>

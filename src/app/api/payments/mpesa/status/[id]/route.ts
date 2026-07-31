@@ -31,7 +31,7 @@ export async function GET(_request: Request, { params }: StatusRouteProps) {
 
   const payment = await supabase
     .from("reservation_payments")
-    .select("id,status,booking_id,result_code,result_description,checkout_request_id,merchant_request_id")
+    .select("id,status,booking_id,result_code,result_description,checkout_request_id,merchant_request_id,internal_reference,mpesa_receipt_number")
     .eq("id", id)
     .single();
 
@@ -68,6 +68,8 @@ export async function GET(_request: Request, { params }: StatusRouteProps) {
           ok: true,
           status: "success",
           bookingId: finalized.ok ? finalized.bookingId : null,
+          paymentReference: payment.data.internal_reference,
+          paymentReceipt: payment.data.mpesa_receipt_number,
           message: finalized.ok
             ? "Payment confirmed."
             : "Payment confirmed, but booking finalization needs attention.",
@@ -92,6 +94,8 @@ export async function GET(_request: Request, { params }: StatusRouteProps) {
           ok: true,
           status: "pending",
           bookingId: payment.data.booking_id,
+          paymentReference: payment.data.internal_reference,
+          paymentReceipt: payment.data.mpesa_receipt_number,
           message: "Transaction is still being processed by M-Pesa.",
         });
       }
@@ -112,6 +116,8 @@ export async function GET(_request: Request, { params }: StatusRouteProps) {
           ok: true,
           status: update.data.status,
           bookingId: update.data.booking_id,
+          paymentReference: payment.data.internal_reference,
+          paymentReceipt: payment.data.mpesa_receipt_number,
           message: update.data.result_description,
         });
       }
@@ -122,6 +128,8 @@ export async function GET(_request: Request, { params }: StatusRouteProps) {
     ok: true,
     status: payment.data.status,
     bookingId: payment.data.booking_id,
+    paymentReference: payment.data.internal_reference,
+    paymentReceipt: payment.data.mpesa_receipt_number,
     message: payment.data.result_description,
   });
 }
