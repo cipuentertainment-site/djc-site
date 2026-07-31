@@ -10,6 +10,14 @@ type StatusRouteProps = {
   }>;
 };
 
+function isStillProcessing(resultCode: number, resultDescription: string) {
+  return (
+    resultCode === 4999 ||
+    resultDescription.toLowerCase().includes("still under processing") ||
+    resultDescription.toLowerCase().includes("being processed")
+  );
+}
+
 export async function GET(_request: Request, { params }: StatusRouteProps) {
   const { id } = await params;
   const supabase = createSupabaseAdminClient();
@@ -23,7 +31,7 @@ export async function GET(_request: Request, { params }: StatusRouteProps) {
 
   const payment = await supabase
     .from("reservation_payments")
-    .select("id,status,booking_id,result_description,checkout_request_id,merchant_request_id")
+    .select("id,status,booking_id,result_code,result_description,checkout_request_id,merchant_request_id")
     .eq("id", id)
     .single();
 
@@ -31,7 +39,11 @@ export async function GET(_request: Request, { params }: StatusRouteProps) {
     return NextResponse.json({ ok: false, message: "Payment not found." }, { status: 404 });
   }
 
-  if (payment.data.status === "pending" && payment.data.checkout_request_id) {
+  const canReconcile =
+    payment.data.status === "pending" ||
+    (payment.data.status === "failed" && payment.data.result_code === 4999);
+
+  if (canReconcile && payment.data.checkout_request_id) {
     const mpesaStatus = await queryStkPush(payment.data.checkout_request_id);
 
     if (mpesaStatus.ok && mpesaStatus.resultCode === 0) {
@@ -64,6 +76,26 @@ export async function GET(_request: Request, { params }: StatusRouteProps) {
     }
 
     if (mpesaStatus.ok && mpesaStatus.resultCode !== 0) {
+      if (isStillProcessing(mpesaStatus.resultCode, mpesaStatus.resultDescription)) {
+        if (payment.data.status !== "pending") {
+          await supabase
+            .from("reservation_payments")
+            .update({
+              status: "pending",
+              result_code: mpesaStatus.resultCode,
+              result_description: mpesaStatus.resultDescription,
+            })
+            .eq("id", payment.data.id);
+        }
+
+        return NextResponse.json({
+          ok: true,
+          status: "pending",
+          bookingId: payment.data.booking_id,
+          message: "Transaction is still being processed by M-Pesa.",
+        });
+      }
+
       const update = await supabase
         .from("reservation_payments")
         .update({

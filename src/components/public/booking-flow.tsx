@@ -181,8 +181,8 @@ export function BookingFlow({ options, status, initialServiceIds }: BookingFlowP
   }
 
   async function pollPaymentStatus(paymentId: string) {
-    for (let attempt = 0; attempt < 30; attempt += 1) {
-      await new Promise((resolve) => window.setTimeout(resolve, 3000));
+    for (let attempt = 0; attempt < 60; attempt += 1) {
+      await new Promise((resolve) => window.setTimeout(resolve, 5000));
 
       const response = await fetch(`/api/payments/mpesa/status/${paymentId}`, {
         cache: "no-store",
@@ -208,6 +208,10 @@ export function BookingFlow({ options, status, initialServiceIds }: BookingFlowP
         setPaymentMessage(result.message ?? "Payment could not be completed.");
         setAttemptKey(createAttemptKey());
         return;
+      }
+
+      if (result.status === "pending" && result.message) {
+        setPaymentMessage(result.message);
       }
     }
 
