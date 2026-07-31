@@ -65,11 +65,11 @@ export function PublicHome({ options, status, errorMessage }: PublicHomeProps) {
             </div>
             <div className="space-y-3">
               <h1 className="max-w-xl text-4xl font-black leading-[0.98] tracking-normal sm:text-5xl">
-                Let&apos;s make your event sound right.
+                Booking event services made easier.
               </h1>
               <p className="max-w-lg text-sm leading-6 text-neutral-600 sm:text-base">
-                DJ sets, clear hosting, and sound that carries the moment. Pick
-                the services you need, then reserve your date.
+                Easy booking, fast planning and quality service.
+                We do the work so you can enjoy your event. Book a DJ, MC, or sound system for your next event with just a few clicks.
               </p>
             </div>
             <div className="flex flex-col gap-3 sm:flex-row">

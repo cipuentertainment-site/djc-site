@@ -7,6 +7,9 @@ import {
   ArrowLeft,
   CalendarCheck,
   Check,
+  CheckCircle2,
+  Copy,
+  Camera,
   Loader2,
   Smartphone,
   Sparkles,
@@ -20,6 +23,13 @@ import {
 import { ServiceImage } from "@/components/public/service-image";
 import { Button } from "@/components/ui/button";
 import { DateInput } from "@/components/ui/date-input";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
@@ -88,6 +98,7 @@ export function BookingFlow({ options, status, initialServiceIds }: BookingFlowP
   const [paymentState, setPaymentState] = useState<PaymentState>("idle");
   const [paymentMessage, setPaymentMessage] = useState("");
   const [bookingId, setBookingId] = useState<string | null>(null);
+  const [referenceId, setReferenceId] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
 
   const settings = options.settings;
@@ -107,13 +118,12 @@ export function BookingFlow({ options, status, initialServiceIds }: BookingFlowP
       price.event_type_size_id === eventSizeId &&
       serviceIds.includes(price.service_id),
   );
-  const estimate = selectedPrices.reduce((sum, price) => sum + price.price_amount, 0);
-  const currency = settings?.currency ?? selectedPrices[0]?.currency ?? "KES";
 
   function resetPayment() {
     setPaymentState("idle");
     setPaymentMessage("");
     setBookingId(null);
+    setReferenceId(null);
   }
 
   function updateEventType(value: string) {
@@ -174,6 +184,9 @@ export function BookingFlow({ options, status, initialServiceIds }: BookingFlowP
 
       if (result.ok) {
         setStep("checkout");
+        window.requestAnimationFrame(() => {
+          window.scrollTo({ top: 0, behavior: "smooth" });
+        });
       } else {
         setFieldErrors(result.fieldErrors ?? {});
       }
@@ -199,6 +212,7 @@ export function BookingFlow({ options, status, initialServiceIds }: BookingFlowP
       if (result.status === "success") {
         setPaymentState("success");
         setBookingId(result.bookingId ?? null);
+        setReferenceId(result.bookingId ?? paymentId);
         setPaymentMessage("Request received. We will contact you to finalize the event.");
         return;
       }
@@ -283,7 +297,7 @@ export function BookingFlow({ options, status, initialServiceIds }: BookingFlowP
   }
 
   return (
-    <section className="grid gap-4 lg:grid-cols-[1fr_360px]">
+    <section>
       <div className="rounded-3xl border border-black/10 bg-white p-4 shadow-sm sm:p-6">
         <div className="mb-5 flex items-start justify-between gap-4">
           <div>
@@ -390,7 +404,7 @@ export function BookingFlow({ options, status, initialServiceIds }: BookingFlowP
                         <span className="text-xs text-neutral-500">
                           {eventTypeId && eventSizeId
                             ? price
-                              ? formatMoney(price.price_amount, price.currency)
+                              ? "Pricing shown at review"
                               : "Not configured"
                             : "Select event first"}
                         </span>
@@ -482,40 +496,11 @@ export function BookingFlow({ options, status, initialServiceIds }: BookingFlowP
             paymentState={paymentState}
             paymentMessage={paymentMessage}
             bookingId={bookingId}
+            referenceId={referenceId}
             onReserve={reserveEvent}
           />
         )}
       </div>
-
-      <aside className="rounded-3xl border border-black/10 bg-neutral-950 p-4 text-sm text-white shadow-sm sm:p-5">
-        <p className="text-xs font-bold uppercase tracking-[0.18em] text-amber-300">Live estimate</p>
-        <p className="mt-2 text-3xl font-black">{formatMoney(estimate, currency)}</p>
-        <p className="mt-1 text-white/55">Estimated service total</p>
-        <div className="mt-4 space-y-2">
-          {selectedPrices.length ? (
-            selectedPrices.map((price) => {
-              const service = options.services.find((item) => item.id === price.service_id);
-              return (
-                <div key={price.id} className="flex justify-between gap-3">
-                  <span>{service?.name}</span>
-                  <span className="font-semibold">{formatMoney(price.price_amount, price.currency)}</span>
-                </div>
-              );
-            })
-          ) : (
-            <p className="text-white/55">Select event size and services to see pricing.</p>
-          )}
-        </div>
-        <div className="mt-4 border-t border-white/10 pt-4 text-white/65">
-          <p>
-            Reservation fee:{" "}
-            <span className="font-semibold text-white">
-              {formatMoney(settings.reservation_fee_amount, currency)}
-            </span>
-          </p>
-          <p className="mt-2">{settings.transport_disclaimer}</p>
-        </div>
-      </aside>
     </section>
   );
 }
@@ -575,6 +560,7 @@ function Checkout({
   paymentState,
   paymentMessage,
   bookingId,
+  referenceId,
   onReserve,
 }: {
   quote: Extract<BookingQuoteResult, { ok: true }> | null;
@@ -587,8 +573,21 @@ function Checkout({
   paymentState: PaymentState;
   paymentMessage: string;
   bookingId: string | null;
+  referenceId: string | null;
   onReserve: () => void;
 }) {
+  const [copied, setCopied] = useState(false);
+
+  async function copyReference() {
+    if (!referenceId) {
+      return;
+    }
+
+    await navigator.clipboard.writeText(referenceId);
+    setCopied(true);
+    window.setTimeout(() => setCopied(false), 1800);
+  }
+
   if (!quote) {
     return <p className="text-sm text-neutral-600">Review the booking details first.</p>;
   }
@@ -596,6 +595,46 @@ function Checkout({
   if (paymentState === "success") {
     return (
       <div className="space-y-5">
+        <Dialog defaultOpen>
+          <DialogContent className="border-emerald-200 bg-white text-neutral-950">
+            <DialogHeader>
+              <div className="mb-2 flex h-12 w-12 items-center justify-center rounded-full bg-emerald-600 text-white">
+                <CheckCircle2 className="h-6 w-6" aria-hidden="true" />
+              </div>
+              <DialogTitle className="text-2xl font-black">Request received</DialogTitle>
+              <DialogDescription>
+                Your reservation payment was confirmed and your booking request was recorded.
+              </DialogDescription>
+            </DialogHeader>
+            <div className="rounded-2xl border border-emerald-100 bg-emerald-50 p-4 text-sm text-emerald-950">
+              <p className="font-semibold">Take a screenshot of this confirmation.</p>
+              <p className="mt-1 text-emerald-900/75">
+                Keep the reference below in case support needs to trace your request.
+              </p>
+            </div>
+            {referenceId ? (
+              <div className="rounded-2xl border border-black/10 bg-neutral-50 p-3">
+                <p className="text-xs font-bold uppercase tracking-[0.16em] text-neutral-400">
+                  Reference
+                </p>
+                <div className="mt-2 flex items-center gap-2">
+                  <code className="min-w-0 flex-1 truncate rounded-lg bg-white px-2 py-2 text-xs text-neutral-800">
+                    {referenceId}
+                  </code>
+                  <Button type="button" size="sm" onClick={copyReference}>
+                    <Copy className="h-4 w-4" />
+                    {copied ? "Copied" : "Copy"}
+                  </Button>
+                </div>
+              </div>
+            ) : null}
+            <div className="flex items-center gap-2 rounded-2xl bg-amber-50 p-3 text-sm text-neutral-700">
+              <Camera className="h-4 w-4 shrink-0 text-amber-700" aria-hidden="true" />
+              Screenshot this page before closing the browser.
+            </div>
+          </DialogContent>
+        </Dialog>
+
         <div className="rounded-3xl bg-emerald-50 p-5 text-emerald-950">
           <div className="flex h-11 w-11 items-center justify-center rounded-full bg-emerald-600 text-white">
             <Check className="h-5 w-5" aria-hidden="true" />
@@ -611,8 +650,24 @@ function Checkout({
           <SummaryItem label="Services" value={quote.selectedServices.map((item) => item.service.name).join(", ")} />
           <SummaryItem label="Reservation" value={formatMoney(quote.reservationFeeAmount, quote.currency)} />
         </div>
-        {bookingId ? (
-          <p className="text-xs text-neutral-500">Reference: {bookingId}</p>
+        {referenceId ? (
+          <div className="rounded-2xl border border-black/10 bg-neutral-50 p-3">
+            <p className="text-xs font-bold uppercase tracking-[0.16em] text-neutral-400">
+              Reference
+            </p>
+            <div className="mt-2 flex items-center gap-2">
+              <code className="min-w-0 flex-1 truncate rounded-lg bg-white px-2 py-2 text-xs text-neutral-800">
+                {referenceId ?? bookingId}
+              </code>
+              <Button type="button" size="sm" onClick={copyReference}>
+                <Copy className="h-4 w-4" />
+                {copied ? "Copied" : "Copy"}
+              </Button>
+            </div>
+            <p className="mt-2 text-xs text-neutral-500">
+              Take a screenshot and keep this reference for easy tracing.
+            </p>
+          </div>
         ) : null}
       </div>
     );
