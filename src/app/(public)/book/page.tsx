@@ -1,5 +1,5 @@
+import Image from "next/image";
 import Link from "next/link";
-import { Headphones } from "lucide-react";
 
 import { BookingFlow } from "@/components/public/booking-flow";
 import { Button } from "@/components/ui/button";
@@ -25,8 +25,15 @@ export default async function BookPage({ searchParams }: BookPageProps) {
       <div className="mx-auto w-full max-w-5xl">
         <header className="mb-4 flex items-center justify-between gap-3">
           <Link href="/" className="flex items-center gap-2 text-sm font-black">
-            <span className="flex h-9 w-9 items-center justify-center rounded-full bg-neutral-950 text-amber-300">
-              <Headphones className="h-4 w-4" aria-hidden="true" />
+            <span className="flex h-10 w-16 shrink-0 items-center justify-center rounded-xl bg-white px-1.5 py-1 shadow-sm ring-1 ring-black/10">
+              <Image
+                src="/brand/logo-transparent.png"
+                alt={`${bookingOptions.data.settings?.business_name ?? "DJC Entertainment"} logo`}
+                width={128}
+                height={64}
+                priority
+                className="max-h-8 w-auto object-contain"
+              />
             </span>
             <span>{bookingOptions.data.settings?.business_name ?? "DJC Entertainment"}</span>
           </Link>

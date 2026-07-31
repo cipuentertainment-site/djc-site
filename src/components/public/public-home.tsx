@@ -3,7 +3,7 @@
 import Image from "next/image";
 import Link from "next/link";
 import { useMemo, useState } from "react";
-import { ArrowRight, Check, Sparkles } from "lucide-react";
+import { ArrowRight, Check } from "lucide-react";
 
 import { ServiceImage } from "@/components/public/service-image";
 import { Button } from "@/components/ui/button";
@@ -22,9 +22,16 @@ export function PublicHome({ options, status, errorMessage }: PublicHomeProps) {
   const settings = options.settings;
   const businessName = settings?.business_name ?? "DJC Entertainment";
   const currentYear = new Date().getFullYear();
-  const heroImageUrl = getServiceImageUrl(
-    options.services.find((service) => service.image_path)?.image_path,
-  );
+  const serviceImageUrls = options.services
+    .map((service) => getServiceImageUrl(service.image_path))
+    .filter((url): url is string => Boolean(url));
+  const [heroImageUrl] = useState(() => {
+    if (!serviceImageUrls.length) {
+      return null;
+    }
+
+    return serviceImageUrls[Math.floor(Math.random() * serviceImageUrls.length)];
+  });
   const bookHref = useMemo(() => {
     const params = new URLSearchParams();
 
@@ -47,7 +54,7 @@ export function PublicHome({ options, status, errorMessage }: PublicHomeProps) {
     <main className="min-h-screen bg-[#f7f4ee] text-neutral-950">
       <div className="mx-auto flex min-h-screen w-full max-w-6xl flex-col px-4 pb-4 sm:px-6 lg:px-8">
         <header className="-mx-4 overflow-hidden bg-neutral-950 text-white shadow-2xl shadow-black/15 sm:mx-0 sm:mt-4 sm:rounded-[2rem]">
-          <div className="relative min-h-[350px] px-4 py-4 sm:min-h-[380px] sm:px-6 lg:px-8">
+          <div className="relative min-h-[300px] px-4 py-4 sm:min-h-[330px] sm:px-6 lg:px-8">
             {heroImageUrl ? (
               // eslint-disable-next-line @next/next/no-img-element
               <img
@@ -63,14 +70,14 @@ export function PublicHome({ options, status, errorMessage }: PublicHomeProps) {
 
             <nav className="relative z-10 flex items-center justify-between gap-3">
               <Link href="/" className="flex min-w-0 items-center gap-2 leading-tight">
-                <span className="flex h-12 w-14 shrink-0 items-center justify-center rounded-2xl bg-white/95 p-1.5 shadow-lg">
+                <span className="flex h-10 w-16 shrink-0 items-center justify-center rounded-xl bg-white/95 px-1.5 py-1 shadow-lg">
                   <Image
                     src="/brand/logo-transparent.png"
                     alt={`${businessName} logo`}
-                    width={96}
+                    width={128}
                     height={64}
                     priority
-                    className="max-h-10 w-auto object-contain"
+                    className="max-h-8 w-auto object-contain"
                   />
                 </span>
                 <span className="min-w-0">
@@ -89,11 +96,7 @@ export function PublicHome({ options, status, errorMessage }: PublicHomeProps) {
               </Button>
             </nav>
 
-            <div className="relative z-10 mt-14 max-w-xl space-y-4 sm:mt-20">
-              <div className="inline-flex items-center gap-2 rounded-full border border-white/15 bg-white/12 px-3 py-1 text-xs font-semibold text-amber-100 backdrop-blur">
-                <Sparkles className="h-3.5 w-3.5" aria-hidden="true" />
-                Premium event entertainment
-              </div>
+            <div className="relative z-10 mt-12 max-w-xl space-y-4 sm:mt-16">
               <div className="space-y-3">
                 <h1 className="text-4xl font-black leading-[0.96] tracking-normal sm:text-5xl">
                   Booking event services made easier.
