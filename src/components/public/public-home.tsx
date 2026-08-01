@@ -123,7 +123,7 @@ export function PublicHome({ options, status, errorMessage }: PublicHomeProps) {
             </p>
             <h2 className="text-2xl font-black">What do you need?</h2>
             <p className="max-w-sm text-sm leading-6 text-neutral-600">
-              Select one or more services. You will choose the event type and
+              Select one or more services then press "Book a service". You will choose the event type and
               date on the next screen.
             </p>
             {selectedServiceIds.length ? (

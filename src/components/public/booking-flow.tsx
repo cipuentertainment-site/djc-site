@@ -627,7 +627,10 @@ function Checkout({
                 label="M-Pesa receipt"
                 value={paymentReceipt ?? "Pending from M-Pesa"}
               />
-              <ReceiptRow label="Request reference" value={referenceId ?? "Pending"} />
+              <ReceiptRow
+                label="Services"
+                value={quote.selectedServices.map((item) => item.service.name).join(", ")}
+              />
             </div>
             {referenceId ? (
               <div className="rounded-2xl border border-black/10 bg-neutral-50 p-3">
