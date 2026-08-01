@@ -44,3 +44,4 @@ tsconfig.tsbuildinfo
 # local verification logs
 .next-*-verify.*.log
 next-env.d.ts
+authorize_brioneroo_admin.sql

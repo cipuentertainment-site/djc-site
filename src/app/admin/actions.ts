@@ -291,6 +291,46 @@ export async function saveServiceAction(
   return { ok: true, message: "Service saved." };
 }
 
+export async function reorderServicesAction(
+  serviceIds: string[],
+): Promise<AdminActionResult> {
+  const ids = serviceIds.filter(Boolean);
+
+  if (!ids.length || ids.some((id) => !/^[0-9a-f-]{36}$/i.test(id))) {
+    return { ok: false, message: "Invalid service order." };
+  }
+
+  if (new Set(ids).size !== ids.length) {
+    return { ok: false, message: "Service order contains duplicates." };
+  }
+
+  const client = await getActionClient();
+
+  if (!client.ok) {
+    return client.result;
+  }
+
+  const results = await Promise.all(
+    ids.map((id, index) =>
+      client.supabase
+        .from("services")
+        .update({ sort_order: (index + 1) * 10 })
+        .eq("id", id),
+    ),
+  );
+  const error = results.find((result) => result.error)?.error;
+
+  if (error) {
+    return { ok: false, message: friendlyError(error.message) };
+  }
+
+  revalidatePath("/");
+  revalidatePath("/book");
+  revalidatePath("/admin/services");
+
+  return { ok: true, message: "Homepage service order saved." };
+}
+
 export async function setServiceActiveAction(
   serviceId: string,
   isActive: boolean,
