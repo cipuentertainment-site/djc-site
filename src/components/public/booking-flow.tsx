@@ -76,6 +76,15 @@ function createAttemptKey() {
   return `${Date.now()}-${Math.random().toString(16).slice(2)}`;
 }
 
+function formatRemainingSlots(availability: DateAvailability) {
+  const remaining = Math.max(
+    availability.maximum_events_per_day - availability.confirmed_count,
+    0,
+  );
+
+  return `${remaining} slot${remaining === 1 ? "" : "s"} remaining`;
+}
+
 export function BookingFlow({ options, status, initialServiceIds }: BookingFlowProps) {
   const validInitialIds = initialServiceIds.filter((id) =>
     options.services.some((service) => service.id === id),
@@ -446,7 +455,7 @@ export function BookingFlow({ options, status, initialServiceIds }: BookingFlowP
                 {dateAvailability ? (
                   <p className={cn("text-xs", dateAvailability.is_available ? "text-emerald-700" : "text-red-600")}>
                     {dateAvailability.is_available
-                      ? `${dateAvailability.confirmed_count}/${dateAvailability.maximum_events_per_day} confirmed events on this date`
+                      ? formatRemainingSlots(dateAvailability)
                       : "This date is unavailable"}
                   </p>
                 ) : null}

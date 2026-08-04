@@ -108,6 +108,10 @@ export async function prepareBookingQuoteAction(
   const services = selectedServices as Array<{ service: PublicService; price: number }>;
   const total = services.reduce((sum, item) => sum + item.price, 0);
   const currency = data.settings?.currency ?? "KES";
+  const remainingSlots = Math.max(
+    dateAvailability.maximum_events_per_day - dateAvailability.confirmed_count,
+    0,
+  );
 
   return {
     ok: true,
@@ -120,7 +124,7 @@ export async function prepareBookingQuoteAction(
     eventTypeName: eventType.name,
     eventSizeLabel: eventSize.label,
     eventSizeRange: `${eventSize.min_attendees}-${eventSize.max_attendees} guests`,
-    dateAvailabilityMessage: `${dateAvailability.confirmed_count}/${dateAvailability.maximum_events_per_day} confirmed bookings on this date.`,
+    dateAvailabilityMessage: `${remainingSlots} slot${remainingSlots === 1 ? "" : "s"} remaining.`,
     canSubmitBooking: true,
     submissionMessage: "Review the estimate, then pay the reservation fee with M-Pesa.",
   };
