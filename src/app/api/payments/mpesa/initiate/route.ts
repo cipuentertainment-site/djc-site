@@ -49,6 +49,9 @@ export async function POST(request: Request) {
       phone_number: validated.data.mpesaPhone,
       internal_reference: internalReference,
       booking_payload: validated.data.bookingPayload,
+      terms_accepted_at: validated.data.bookingPayload.termsAcceptedAt,
+      terms_version: validated.data.bookingPayload.termsVersion,
+      privacy_notice_version: validated.data.bookingPayload.privacyNoticeVersion,
       status: "pending",
     })
     .select("id,internal_reference")

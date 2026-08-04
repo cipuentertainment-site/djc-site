@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useMemo, useState } from "react";
 import { ArrowRight, Check } from "lucide-react";
 
+import { PublicFooter } from "@/components/public/public-footer";
 import { ServiceImage } from "@/components/public/service-image";
 import { Button } from "@/components/ui/button";
 import { getServiceImageUrl } from "@/lib/supabase/storage";
@@ -21,7 +22,6 @@ export function PublicHome({ options, status, errorMessage }: PublicHomeProps) {
   const [selectedServiceIds, setSelectedServiceIds] = useState<string[]>([]);
   const settings = options.settings;
   const businessName = settings?.business_name ?? "DJC Entertainment";
-  const currentYear = new Date().getFullYear();
   const serviceImageUrls = options.services
     .map((service) => getServiceImageUrl(service.image_path))
     .filter((url): url is string => Boolean(url));
@@ -123,7 +123,7 @@ export function PublicHome({ options, status, errorMessage }: PublicHomeProps) {
             </p>
             <h2 className="text-2xl font-black">What do you need?</h2>
             <p className="max-w-sm text-sm leading-6 text-neutral-600">
-              Select one or more services then press "Book a service". You will choose the event type and
+              Select one or more services then press &quot;Book a service&quot;. You will choose the event type and
               date on the next screen.
             </p>
             {selectedServiceIds.length ? (
@@ -207,28 +207,13 @@ export function PublicHome({ options, status, errorMessage }: PublicHomeProps) {
           </div>
         </section>
 
-        <footer className="border-t border-black/10 py-6 text-sm text-neutral-600">
-          <div className="grid gap-4 sm:grid-cols-[1fr_auto] sm:items-end">
-            <div>
-              <p className="font-black text-neutral-950">{businessName}</p>
-              <p className="mt-1 max-w-md text-xs leading-5 text-neutral-500">
-                Professional DJ, MC, and event sound services for weddings,
-                parties, corporate events, and celebrations.
-              </p>
-            </div>
-            <div className="space-y-1 text-left text-xs sm:text-right">
-              {settings?.business_phone ? <p>Phone: {settings.business_phone}</p> : null}
-              {settings?.business_whatsapp ? <p>WhatsApp: {settings.business_whatsapp}</p> : null}
-              {settings?.business_email ? <p>Email: {settings.business_email}</p> : null}
-              {settings?.business_location ? <p>Location: {settings.business_location}</p> : null}
-            </div>
-          </div>
-          <div className="mt-5 border-t border-black/10 pt-4 text-xs text-neutral-500">
-            <p>
-              &copy; {currentYear} {businessName}. All rights reserved.
-            </p>
-          </div>
-        </footer>
+        <PublicFooter
+          businessName={businessName}
+          phone={settings?.business_phone}
+          whatsapp={settings?.business_whatsapp}
+          email={settings?.business_email}
+          location={settings?.business_location}
+        />
       </div>
     </main>
   );

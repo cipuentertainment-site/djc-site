@@ -1,5 +1,6 @@
 import { randomUUID } from "crypto";
 
+import { PRIVACY_NOTICE_VERSION, TERMS_VERSION } from "@/lib/legal-documents";
 import { normalizeKenyanPhone } from "@/lib/mpesa/phone";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin-server";
 import { getDateAvailability } from "@/lib/supabase/public-data";
@@ -35,6 +36,9 @@ export type ValidatedBookingPayload = {
     reservationFeeAmount: number;
     currency: string;
     transportDisclaimer: string;
+    termsAcceptedAt: string;
+    termsVersion: string;
+    privacyNoticeVersion: string;
   };
 };
 
@@ -159,6 +163,7 @@ export async function validateBookingForPayment(
     (sum, service) => sum + service.priceAmount,
     0,
   );
+  const termsAcceptedAt = new Date().toISOString();
 
   return {
     ok: true,
@@ -187,6 +192,9 @@ export async function validateBookingForPayment(
         reservationFeeAmount: settings.data.reservation_fee_amount,
         currency: settings.data.currency,
         transportDisclaimer: settings.data.transport_disclaimer,
+        termsAcceptedAt,
+        termsVersion: TERMS_VERSION,
+        privacyNoticeVersion: PRIVACY_NOTICE_VERSION,
       },
     },
   };
@@ -240,6 +248,9 @@ export async function finalizeBookingFromPayment(paymentId: string) {
       reservation_fee_payment_status: "paid",
       reservation_fee_payment_reference: payment.data.mpesa_receipt_number,
       reservation_fee_paid_at: payment.data.paid_at,
+      terms_accepted_at: payload.termsAcceptedAt,
+      terms_version: payload.termsVersion,
+      privacy_notice_version: payload.privacyNoticeVersion,
       status: "pending",
       notes: payload.customerEmail ? `Customer email: ${payload.customerEmail}` : null,
     })

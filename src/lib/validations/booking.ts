@@ -38,6 +38,12 @@ export const bookingQuoteSchema = z.object({
     .regex(/^(?:\+254|254|0)?[17]\d{8}$/, "Enter a valid M-Pesa number.")
     .optional()
     .or(z.literal("")),
+  legalConsent: z
+    .boolean()
+    .refine(
+      (value) => value,
+      "Agree to the Terms & Conditions and acknowledge the Privacy Notice.",
+    ),
 });
 
 export type BookingQuoteInput = z.infer<typeof bookingQuoteSchema>;

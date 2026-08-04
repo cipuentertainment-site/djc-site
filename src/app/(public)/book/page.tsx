@@ -2,6 +2,7 @@ import Image from "next/image";
 import Link from "next/link";
 
 import { BookingFlow } from "@/components/public/booking-flow";
+import { PublicFooter } from "@/components/public/public-footer";
 import { Button } from "@/components/ui/button";
 import { getPublicBookingOptions } from "@/lib/supabase/public-data";
 
@@ -14,6 +15,8 @@ type BookPageProps = {
 export default async function BookPage({ searchParams }: BookPageProps) {
   const params = await searchParams;
   const bookingOptions = await getPublicBookingOptions();
+  const settings = bookingOptions.data.settings;
+  const businessName = settings?.business_name ?? "DJC Entertainment";
   const selectedServiceIds =
     params.services
       ?.split(",")
@@ -35,7 +38,7 @@ export default async function BookPage({ searchParams }: BookPageProps) {
                 className="max-h-6 max-w-6 object-contain"
               />
             </span>
-            <span>{bookingOptions.data.settings?.business_name ?? "DJC Entertainment"}</span>
+            <span>{businessName}</span>
           </Link>
           <Button asChild variant="outline" size="sm" className="border-neutral-300 bg-white/70 text-neutral-950 hover:bg-white">
             <Link href="/">Home</Link>
@@ -45,6 +48,13 @@ export default async function BookPage({ searchParams }: BookPageProps) {
           options={bookingOptions.data}
           status={bookingOptions.status}
           initialServiceIds={selectedServiceIds}
+        />
+        <PublicFooter
+          businessName={businessName}
+          phone={settings?.business_phone}
+          whatsapp={settings?.business_whatsapp}
+          email={settings?.business_email}
+          location={settings?.business_location}
         />
       </div>
     </main>

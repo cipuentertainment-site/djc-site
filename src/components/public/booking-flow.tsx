@@ -3,6 +3,7 @@
 import type * as React from "react";
 import { useMemo, useState, useTransition } from "react";
 import { format } from "date-fns";
+import Link from "next/link";
 import {
   ArrowLeft,
   CalendarCheck,
@@ -91,6 +92,7 @@ export function BookingFlow({ options, status, initialServiceIds }: BookingFlowP
   const [customerPhone, setCustomerPhone] = useState("");
   const [customerEmail, setCustomerEmail] = useState("");
   const [mpesaPhone, setMpesaPhone] = useState("");
+  const [legalConsent, setLegalConsent] = useState(false);
   const [attemptKey, setAttemptKey] = useState(createAttemptKey);
   const [dateAvailability, setDateAvailability] =
     useState<DateAvailability | null>(null);
@@ -182,6 +184,7 @@ export function BookingFlow({ options, status, initialServiceIds }: BookingFlowP
         customerPhone,
         customerEmail,
         mpesaPhone,
+        legalConsent,
       });
       setQuoteResult(result);
 
@@ -264,6 +267,7 @@ export function BookingFlow({ options, status, initialServiceIds }: BookingFlowP
         customerPhone,
         customerEmail,
         mpesaPhone,
+        legalConsent,
       }),
     });
     const result = (await response.json().catch(() => null)) as
@@ -479,10 +483,32 @@ export function BookingFlow({ options, status, initialServiceIds }: BookingFlowP
               </p>
             ) : null}
 
+            <FieldError error={fieldErrors.legalConsent?.[0]}>
+              <label className="flex items-start gap-3 rounded-2xl border border-neutral-200 bg-neutral-50 p-3 text-sm leading-6 text-neutral-700">
+                <input
+                  type="checkbox"
+                  checked={legalConsent}
+                  onChange={(event) => setLegalConsent(event.target.checked)}
+                  className="mt-1 h-4 w-4 shrink-0"
+                />
+                <span>
+                  I have read and agree to the{" "}
+                  <Link href="/terms" className="font-semibold text-neutral-950 underline">
+                    Terms & Conditions
+                  </Link>{" "}
+                  and acknowledge the{" "}
+                  <Link href="/privacy" className="font-semibold text-neutral-950 underline">
+                    Privacy Notice
+                  </Link>
+                  .
+                </span>
+              </label>
+            </FieldError>
+
             <Button
               className="h-12 w-full bg-amber-400 text-black hover:bg-amber-300 sm:w-auto"
               onClick={reviewEstimate}
-              disabled={isPending || dateAvailability?.is_available === false}
+              disabled={isPending || dateAvailability?.is_available === false || !legalConsent}
             >
               {isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <CalendarCheck className="h-4 w-4" />}
               Review estimate
