@@ -1,5 +1,6 @@
 import type {
   DateAvailability,
+  BookingDuration,
   EventSizeLabel,
   PublicBookingSettings,
   PublicEventType,
@@ -28,6 +29,7 @@ export type AdminBookingListItem = {
   customer_phone: string;
   event_type_name_snapshot: string;
   event_size_label_snapshot: EventSizeLabel;
+  duration: BookingDuration;
   attendee_count: number;
   event_date: string;
   county: string;

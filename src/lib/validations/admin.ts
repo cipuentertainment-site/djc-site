@@ -31,6 +31,7 @@ export const eventTypeFormSchema = z
     id: z.string().uuid().optional(),
     name: z.string().trim().min(2, "Enter an event type name."),
     description: z.string().trim().optional(),
+    supportsHalfDay: z.boolean(),
     isActive: z.boolean(),
     serviceIds: z.array(z.string().uuid()),
     sizes: z
@@ -48,6 +49,7 @@ export const serviceFormSchema = z.object({
   name: z.string().trim().min(2, "Enter a service name."),
   description: z.string().trim().optional(),
   imagePath: z.string().trim().optional().nullable(),
+  supportsHalfDay: z.boolean(),
   isActive: z.boolean(),
 });
 
@@ -57,6 +59,7 @@ export const pricingFormSchema = z.object({
     z.object({
       eventTypeSizeId: z.string().uuid(),
       serviceId: z.string().uuid(),
+      duration: z.enum(["full_day", "half_day"]),
       priceAmount: z.coerce.number().int().min(0).nullable(),
       isActive: z.boolean(),
     }),

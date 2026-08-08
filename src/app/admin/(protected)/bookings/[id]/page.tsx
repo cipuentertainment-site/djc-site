@@ -23,12 +23,17 @@ import {
 } from "@/components/ui/table";
 import { formatMoney } from "@/lib/format";
 import { getAdminBookingDetail } from "@/lib/supabase/admin-data";
+import type { AdminBookingDetail } from "@/types/admin-data";
 
 type BookingDetailPageProps = {
   params: Promise<{
     id: string;
   }>;
 };
+
+function formatDuration(duration: AdminBookingDetail["duration"]) {
+  return duration === "half_day" ? "Half Day" : "Full Day";
+}
 
 export default async function BookingDetailPage({ params }: BookingDetailPageProps) {
   const { id } = await params;
@@ -56,7 +61,10 @@ export default async function BookingDetailPage({ params }: BookingDetailPagePro
   if (!booking.data) {
     return (
       <div className="space-y-6">
-        <AdminPageHeader title="Booking not found" description="No matching booking record exists." />
+        <AdminPageHeader
+          title="Booking not found"
+          description="No matching booking record exists."
+        />
         <Button asChild variant="outline">
           <Link href="/admin/bookings">Back to bookings</Link>
         </Button>
@@ -91,7 +99,10 @@ export default async function BookingDetailPage({ params }: BookingDetailPagePro
           <CardContent className="space-y-2 text-sm">
             <p>{item.event_type_name_snapshot}</p>
             <p className="capitalize text-muted-foreground">
-              {item.event_size_label_snapshot} · {item.attendee_count} attendees
+              {item.event_size_label_snapshot} - {formatDuration(item.duration)}
+            </p>
+            <p className="text-muted-foreground">
+              {item.event_size_min_attendees_snapshot}-{item.event_size_max_attendees_snapshot} attendees
             </p>
             <p>{format(new Date(item.event_date), "MMMM d, yyyy")}</p>
           </CardContent>
@@ -110,7 +121,9 @@ export default async function BookingDetailPage({ params }: BookingDetailPagePro
       <Card>
         <CardHeader>
           <CardTitle>Services and price snapshot</CardTitle>
-          <CardDescription>These values are not recalculated from current pricing.</CardDescription>
+          <CardDescription>
+            These values are not recalculated from current pricing.
+          </CardDescription>
         </CardHeader>
         <CardContent>
           <Table>
@@ -153,7 +166,9 @@ export default async function BookingDetailPage({ params }: BookingDetailPagePro
               </span>
             </p>
             <p>Transport: Quoted separately</p>
-            <p className="text-muted-foreground">{item.transport_disclaimer_snapshot}</p>
+            <p className="text-muted-foreground">
+              {item.transport_disclaimer_snapshot}
+            </p>
           </CardContent>
         </Card>
         <Card>

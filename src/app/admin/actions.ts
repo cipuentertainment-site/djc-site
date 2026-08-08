@@ -92,10 +92,35 @@ export async function saveEventTypeAction(
 
   const { supabase } = client;
   const slug = slugify(parsed.data.name);
+
+  if (parsed.data.supportsHalfDay && parsed.data.serviceIds.length) {
+    const services = await supabase
+      .from("services")
+      .select("name,supports_half_day")
+      .in("id", parsed.data.serviceIds);
+
+    if (services.error) {
+      return { ok: false, message: friendlyError(services.error.message) };
+    }
+
+    const incompatible =
+      services.data
+        ?.filter((service) => !service.supports_half_day)
+        .map((service) => service.name) ?? [];
+
+    if (incompatible.length) {
+      return {
+        ok: false,
+        message: `Half Day cannot be enabled because these selected services do not support it: ${incompatible.join(", ")}.`,
+      };
+    }
+  }
+
   const eventTypePayload = {
     name: parsed.data.name.trim(),
     slug,
     description: parsed.data.description?.trim() || null,
+    supports_half_day: parsed.data.supportsHalfDay,
     is_active: parsed.data.isActive,
   };
 
@@ -181,6 +206,7 @@ export async function saveEventTypeAction(
   }
 
   revalidatePath("/");
+  revalidatePath("/book");
   revalidatePath("/admin/event-types");
   revalidatePath("/admin/pricing");
 
@@ -207,6 +233,7 @@ export async function setEventTypeActiveAction(
   }
 
   revalidatePath("/");
+  revalidatePath("/book");
   revalidatePath("/admin/event-types");
   return { ok: true, message: isActive ? "Event type enabled." : "Event type disabled." };
 }
@@ -249,6 +276,7 @@ export async function deleteEventTypeIfUnusedAction(
   }
 
   revalidatePath("/");
+  revalidatePath("/book");
   revalidatePath("/admin/event-types");
   return { ok: true, message: "Unused event type deleted." };
 }
@@ -273,6 +301,7 @@ export async function saveServiceAction(
     slug: slugify(parsed.data.name),
     description: parsed.data.description?.trim() || null,
     image_path: parsed.data.imagePath || null,
+    supports_half_day: parsed.data.supportsHalfDay,
     is_active: parsed.data.isActive,
   };
 
@@ -285,6 +314,7 @@ export async function saveServiceAction(
   }
 
   revalidatePath("/");
+  revalidatePath("/book");
   revalidatePath("/admin/services");
   revalidatePath("/admin/pricing");
 
@@ -351,6 +381,7 @@ export async function setServiceActiveAction(
   }
 
   revalidatePath("/");
+  revalidatePath("/book");
   revalidatePath("/admin/services");
   return { ok: true, message: isActive ? "Service enabled." : "Service disabled." };
 }
@@ -393,6 +424,7 @@ export async function deleteServiceIfUnusedAction(
   }
 
   revalidatePath("/");
+  revalidatePath("/book");
   revalidatePath("/admin/services");
   return { ok: true, message: "Unused service deleted." };
 }
@@ -420,16 +452,48 @@ export async function savePricingAction(
     return { ok: false, message: "Enter at least one price to save." };
   }
 
+  const halfDayServiceIds = Array.from(
+    new Set(
+      configuredPrices
+        .filter((price) => price.duration === "half_day")
+        .map((price) => price.serviceId),
+    ),
+  );
+
+  if (halfDayServiceIds.length) {
+    const services = await client.supabase
+      .from("services")
+      .select("name,supports_half_day")
+      .in("id", halfDayServiceIds);
+
+    if (services.error) {
+      return { ok: false, message: friendlyError(services.error.message) };
+    }
+
+    const incompatible =
+      services.data
+        ?.filter((service) => !service.supports_half_day)
+        .map((service) => service.name) ?? [];
+
+    if (incompatible.length) {
+      return {
+        ok: false,
+        message: `Half Day pricing can only be saved for services that support Half Day: ${incompatible.join(", ")}.`,
+      };
+    }
+  }
+
   const result = await client.supabase.from("service_prices").upsert(
     configuredPrices.map((price) => ({
       event_type_id: parsed.data.eventTypeId,
       event_type_size_id: price.eventTypeSizeId,
       service_id: price.serviceId,
+      duration: price.duration,
       price_amount: price.priceAmount,
       currency: "KES",
       is_active: price.isActive,
     })),
-    { onConflict: "event_type_id,event_type_size_id,service_id" },
+    { onConflict: "event_type_id,event_type_size_id,service_id,duration" },
   );
 
   if (result.error) {
@@ -437,6 +501,7 @@ export async function savePricingAction(
   }
 
   revalidatePath("/");
+  revalidatePath("/book");
   revalidatePath("/admin/pricing");
   return { ok: true, message: "Pricing saved." };
 }

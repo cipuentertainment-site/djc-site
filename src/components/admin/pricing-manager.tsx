@@ -50,7 +50,7 @@ export function PricingManager({ config }: PricingManagerProps) {
   const priceByCombination = useMemo(() => {
     return new Map(
       config.servicePrices.map((price) => [
-        `${price.event_type_size_id}:${price.service_id}`,
+        `${price.event_type_size_id}:${price.service_id}:${price.duration}`,
         price,
       ]),
     );
@@ -59,22 +59,27 @@ export function PricingManager({ config }: PricingManagerProps) {
   function save() {
     startTransition(async () => {
       const prices = sizes.flatMap((size) =>
-        services.map((service) => {
-          const key = `${size.id}:${service.id}`;
-          const existing = priceByCombination.get(key);
-          const draft = drafts[key];
-          const priceAmount =
-            draft === undefined || draft === ""
-              ? existing?.price_amount ?? null
-              : Number(draft);
+        services.flatMap((service) =>
+          (service.supports_half_day ? ["full_day", "half_day"] : ["full_day"]).map(
+            (duration) => {
+              const key = `${size.id}:${service.id}:${duration}`;
+              const existing = priceByCombination.get(key);
+              const draft = drafts[key];
+              const priceAmount =
+                draft === undefined || draft === ""
+                  ? existing?.price_amount ?? null
+                  : Number(draft);
 
-          return {
-            eventTypeSizeId: size.id,
-            serviceId: service.id,
-            priceAmount,
-            isActive: existing?.is_active ?? true,
-          };
-        }),
+              return {
+                eventTypeSizeId: size.id,
+                serviceId: service.id,
+                duration: duration as "full_day" | "half_day",
+                priceAmount,
+                isActive: existing?.is_active ?? true,
+              };
+            },
+          ),
+        ),
       );
 
       const actionResult = await savePricingAction({ eventTypeId, prices });
@@ -99,7 +104,7 @@ export function PricingManager({ config }: PricingManagerProps) {
         <CardHeader>
           <CardTitle>Pricing matrix</CardTitle>
           <CardDescription>
-            Prices are specific to event type, event size, and service.
+            Prices are specific to event type, event size, service, and duration.
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
@@ -137,36 +142,71 @@ export function PricingManager({ config }: PricingManagerProps) {
                   </CardHeader>
                   <CardContent className="space-y-3 p-4 pt-0">
                     {services.map((service) => {
-                      const key = `${size.id}:${service.id}`;
-                      const existing = priceByCombination.get(key);
+                      const fullDayKey = `${size.id}:${service.id}:full_day`;
+                      const halfDayKey = `${size.id}:${service.id}:half_day`;
+                      const fullDay = priceByCombination.get(fullDayKey);
+                      const halfDay = priceByCombination.get(halfDayKey);
 
                       return (
                         <div
                           key={service.id}
-                          className="grid gap-2 rounded-md border p-3 sm:grid-cols-[1fr_180px_140px] sm:items-center"
+                          className="grid gap-3 rounded-md border p-3 lg:grid-cols-[1fr_180px_180px_140px] lg:items-center"
                         >
                           <div>
                             <p className="font-medium">{service.name}</p>
                             <p className="text-sm text-muted-foreground">
-                              {existing
-                                ? formatMoney(existing.price_amount, existing.currency)
-                                : "Not configured"}
+                              Full Day{" "}
+                              {fullDay
+                                ? formatMoney(fullDay.price_amount, fullDay.currency)
+                                : "not configured"}
+                              {service.supports_half_day ? (
+                                <>
+                                  {" "}· Half Day{" "}
+                                  {halfDay
+                                    ? formatMoney(halfDay.price_amount, halfDay.currency)
+                                    : "not configured"}
+                                </>
+                              ) : null}
                             </p>
                           </div>
-                          <Input
-                            type="number"
-                            min={0}
-                            placeholder="Price"
-                            value={drafts[key] ?? ""}
-                            onChange={(event) =>
-                              setDrafts((current) => ({
-                                ...current,
-                                [key]: event.target.value,
-                              }))
-                            }
-                          />
-                          <Badge variant={existing ? "default" : "muted"}>
-                            {existing ? "Configured" : "Not configured"}
+                          <div className="space-y-1">
+                            <Label className="text-xs">Full Day</Label>
+                            <Input
+                              type="number"
+                              min={0}
+                              placeholder="Full Day price"
+                              value={drafts[fullDayKey] ?? ""}
+                              onChange={(event) =>
+                                setDrafts((current) => ({
+                                  ...current,
+                                  [fullDayKey]: event.target.value,
+                                }))
+                              }
+                            />
+                          </div>
+                          {service.supports_half_day ? (
+                            <div className="space-y-1">
+                              <Label className="text-xs">Half Day</Label>
+                              <Input
+                                type="number"
+                                min={0}
+                                placeholder="Half Day price"
+                                value={drafts[halfDayKey] ?? ""}
+                                onChange={(event) =>
+                                  setDrafts((current) => ({
+                                    ...current,
+                                    [halfDayKey]: event.target.value,
+                                  }))
+                                }
+                              />
+                            </div>
+                          ) : (
+                            <div className="rounded-md border border-dashed px-3 py-2 text-sm text-muted-foreground">
+                              Full Day only
+                            </div>
+                          )}
+                          <Badge variant={fullDay ? "default" : "muted"}>
+                            {fullDay ? "Configured" : "Not configured"}
                           </Badge>
                         </div>
                       );

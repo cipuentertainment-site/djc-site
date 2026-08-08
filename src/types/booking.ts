@@ -1,10 +1,12 @@
 export type EventSizeLabel = "small" | "medium" | "large";
+export type BookingDuration = "full_day" | "half_day";
 
 export type PublicEventType = {
   id: string;
   name: string;
   slug: string;
   description: string | null;
+  supports_half_day?: boolean;
   is_active?: boolean;
   sort_order?: number;
 };
@@ -25,6 +27,7 @@ export type PublicService = {
   slug: string;
   description: string | null;
   image_path: string | null;
+  supports_half_day?: boolean;
   is_active?: boolean;
   sort_order?: number;
 };
@@ -40,6 +43,7 @@ export type PublicServicePrice = {
   event_type_id: string;
   event_type_size_id: string;
   service_id: string;
+  duration: BookingDuration;
   price_amount: number;
   currency: string;
   is_active?: boolean;

@@ -34,6 +34,9 @@ export function EventTypeForm({
 }: EventTypeFormProps) {
   const [name, setName] = useState(eventType?.name ?? "");
   const [description, setDescription] = useState(eventType?.description ?? "");
+  const [supportsHalfDay, setSupportsHalfDay] = useState(
+    eventType?.supports_half_day ?? false,
+  );
   const [isActive, setIsActive] = useState(eventType?.is_active ?? true);
   const [selectedServices, setSelectedServices] = useState(
     relationships
@@ -62,6 +65,16 @@ export function EventTypeForm({
       }),
     [ranges],
   );
+  const incompatibleHalfDayServices = useMemo(
+    () =>
+      supportsHalfDay
+        ? services.filter(
+            (service) =>
+              selectedServices.includes(service.id) && !service.supports_half_day,
+          )
+        : [],
+    [selectedServices, services, supportsHalfDay],
+  );
 
   function toggleService(serviceId: string) {
     setSelectedServices((current) =>
@@ -77,6 +90,7 @@ export function EventTypeForm({
         id: eventType?.id,
         name,
         description,
+        supportsHalfDay,
         isActive,
         serviceIds: selectedServices,
         sizes: ranges,
@@ -119,6 +133,24 @@ export function EventTypeForm({
             onChange={(event) => setDescription(event.target.value)}
             placeholder="Birthday parties and celebrations."
           />
+        </div>
+
+        <div className="space-y-3 rounded-md border bg-muted/30 p-3">
+          <Label>Duration capability</Label>
+          <div className="grid gap-2 text-sm sm:grid-cols-2">
+            <label className="flex items-center gap-2 rounded-md border bg-background px-3 py-2">
+              <input type="checkbox" checked readOnly />
+              Full Day
+            </label>
+            <label className="flex items-center gap-2 rounded-md border bg-background px-3 py-2">
+              <input
+                type="checkbox"
+                checked={supportsHalfDay}
+                onChange={(event) => setSupportsHalfDay(event.target.checked)}
+              />
+              Half Day
+            </label>
+          </div>
         </div>
 
         <div className="space-y-3">
@@ -187,14 +219,26 @@ export function EventTypeForm({
                   checked={selectedServices.includes(service.id)}
                   onChange={() => toggleService(service.id)}
                 />
-                {service.name}
+                <span className="min-w-0 flex-1">{service.name}</span>
+                <span className="text-xs text-muted-foreground">
+                  {service.supports_half_day ? "Half Day ok" : "Full Day only"}
+                </span>
               </label>
             ))}
           </div>
+          {incompatibleHalfDayServices.length ? (
+            <p className="rounded-md bg-destructive/10 p-3 text-sm text-destructive">
+              Half Day cannot be enabled while these selected services are Full Day
+              only: {incompatibleHalfDayServices.map((service) => service.name).join(", ")}.
+            </p>
+          ) : null}
         </div>
 
         <ResultMessage result={result} />
-        <Button onClick={save} disabled={isPending || isRangeInvalid}>
+        <Button
+          onClick={save}
+          disabled={isPending || isRangeInvalid || incompatibleHalfDayServices.length > 0}
+        >
           <Save className="h-4 w-4" />
           {isPending ? "Saving..." : "Save event type"}
         </Button>

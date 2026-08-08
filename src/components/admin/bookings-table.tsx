@@ -20,6 +20,10 @@ type BookingsTableProps = {
   compact?: boolean;
 };
 
+function formatDuration(duration: AdminBookingListItem["duration"]) {
+  return duration === "half_day" ? "Half Day" : "Full Day";
+}
+
 export function BookingsTable({ bookings, compact = false }: BookingsTableProps) {
   return (
     <Table>
@@ -42,14 +46,16 @@ export function BookingsTable({ bookings, compact = false }: BookingsTableProps)
             <TableCell>
               <div className="font-medium">{booking.customer_name}</div>
               {compact ? (
-                <div className="text-xs text-muted-foreground">{booking.customer_phone}</div>
+                <div className="text-xs text-muted-foreground">
+                  {booking.customer_phone}
+                </div>
               ) : null}
             </TableCell>
             {!compact ? <TableCell>{booking.customer_phone}</TableCell> : null}
             <TableCell>
               <div>{booking.event_type_name_snapshot}</div>
               <div className="text-xs capitalize text-muted-foreground">
-                {booking.event_size_label_snapshot} · {booking.attendee_count} attendees
+                {booking.event_size_label_snapshot} - {formatDuration(booking.duration)}
               </div>
             </TableCell>
             <TableCell>{format(new Date(booking.event_date), "MMM d, yyyy")}</TableCell>
@@ -63,7 +69,9 @@ export function BookingsTable({ bookings, compact = false }: BookingsTableProps)
             {!compact ? (
               <TableCell>
                 <div>{booking.county}</div>
-                <div className="text-xs text-muted-foreground">{booking.location_text}</div>
+                <div className="text-xs text-muted-foreground">
+                  {booking.location_text}
+                </div>
               </TableCell>
             ) : null}
             <TableCell>

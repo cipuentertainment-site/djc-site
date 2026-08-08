@@ -21,6 +21,9 @@ export function ServiceForm({ service }: ServiceFormProps) {
   const [name, setName] = useState(service?.name ?? "");
   const [description, setDescription] = useState(service?.description ?? "");
   const [imagePath, setImagePath] = useState(service?.image_path ?? "");
+  const [supportsHalfDay, setSupportsHalfDay] = useState(
+    service?.supports_half_day ?? false,
+  );
   const [isActive, setIsActive] = useState(service?.is_active ?? true);
   const [result, setResult] = useState<AdminActionResult>();
   const [isPending, startTransition] = useTransition();
@@ -32,6 +35,7 @@ export function ServiceForm({ service }: ServiceFormProps) {
         name,
         description,
         imagePath,
+        supportsHalfDay,
         isActive,
       });
       setResult(actionResult);
@@ -78,6 +82,23 @@ export function ServiceForm({ service }: ServiceFormProps) {
             value={description}
             onChange={(event) => setDescription(event.target.value)}
           />
+        </div>
+        <div className="space-y-3 rounded-md border bg-muted/30 p-3">
+          <Label>Duration availability</Label>
+          <div className="grid gap-2 text-sm sm:grid-cols-2">
+            <label className="flex items-center gap-2 rounded-md border bg-background px-3 py-2">
+              <input type="checkbox" checked readOnly />
+              Full Day
+            </label>
+            <label className="flex items-center gap-2 rounded-md border bg-background px-3 py-2">
+              <input
+                type="checkbox"
+                checked={supportsHalfDay}
+                onChange={(event) => setSupportsHalfDay(event.target.checked)}
+              />
+              Half Day
+            </label>
+          </div>
         </div>
         <ResultMessage result={result} />
         <Button onClick={save} disabled={isPending}>

@@ -42,7 +42,7 @@ export async function getPublicBookingOptions(): Promise<PublicDataResult> {
         .maybeSingle(),
       supabase
         .from("event_types")
-        .select("id,name,slug,description")
+        .select("id,name,slug,description,supports_half_day")
         .eq("is_active", true)
         .order("sort_order")
         .order("name"),
@@ -57,13 +57,13 @@ export async function getPublicBookingOptions(): Promise<PublicDataResult> {
         .eq("is_active", true),
       supabase
         .from("services")
-        .select("id,name,slug,description,image_path")
+        .select("id,name,slug,description,image_path,supports_half_day")
         .eq("is_active", true)
         .order("sort_order")
         .order("name"),
       supabase
         .from("service_prices")
-        .select("id,event_type_id,event_type_size_id,service_id,price_amount,currency")
+        .select("id,event_type_id,event_type_size_id,service_id,duration,price_amount,currency")
         .eq("is_active", true),
     ]);
 

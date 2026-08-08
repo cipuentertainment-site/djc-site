@@ -30,6 +30,7 @@ const bookingListSelect = `
   customer_phone,
   event_type_name_snapshot,
   event_size_label_snapshot,
+  duration,
   attendee_count,
   event_date,
   county,
@@ -152,7 +153,7 @@ export async function getAdminConfigData(): Promise<AdminDataResult<AdminConfigD
         .maybeSingle(),
       supabase
         .from("event_types")
-        .select("id,name,slug,description,is_active,sort_order")
+        .select("id,name,slug,description,supports_half_day,is_active,sort_order")
         .order("sort_order")
         .order("name"),
       supabase
@@ -164,12 +165,12 @@ export async function getAdminConfigData(): Promise<AdminDataResult<AdminConfigD
         .select("event_type_id,service_id,is_active"),
       supabase
         .from("services")
-        .select("id,name,slug,description,image_path,is_active,sort_order")
+        .select("id,name,slug,description,image_path,supports_half_day,is_active,sort_order")
         .order("sort_order")
         .order("name"),
       supabase
         .from("service_prices")
-        .select("id,event_type_id,event_type_size_id,service_id,price_amount,currency,is_active"),
+        .select("id,event_type_id,event_type_size_id,service_id,duration,price_amount,currency,is_active"),
     ]);
 
   const error =

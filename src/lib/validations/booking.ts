@@ -19,6 +19,7 @@ const dateStringSchema = z.string().refine((value) => {
 export const bookingQuoteSchema = z.object({
   eventTypeId: z.string().uuid("Select an event type."),
   eventSizeId: z.string().uuid("Select an event size."),
+  duration: z.enum(["full_day", "half_day"]).default("full_day"),
   serviceIds: z.array(z.string().uuid()).min(1, "Select at least one service."),
   eventDate: dateStringSchema,
   county: z.enum(KENYAN_COUNTIES, {

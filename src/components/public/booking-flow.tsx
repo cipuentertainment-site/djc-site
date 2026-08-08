@@ -42,7 +42,7 @@ import {
 import { KENYAN_COUNTIES } from "@/lib/counties";
 import { formatMoney } from "@/lib/format";
 import { cn } from "@/lib/utils";
-import type { BookingOptions, DateAvailability } from "@/types/booking";
+import type { BookingDuration, BookingOptions, DateAvailability } from "@/types/booking";
 
 type BookingFlowProps = {
   options: BookingOptions;
@@ -92,6 +92,7 @@ export function BookingFlow({ options, status, initialServiceIds }: BookingFlowP
   const [step, setStep] = useState<"details" | "checkout">("details");
   const [eventTypeId, setEventTypeId] = useState("");
   const [eventSizeId, setEventSizeId] = useState("");
+  const [duration, setDuration] = useState<BookingDuration>("full_day");
   const [serviceIds, setServiceIds] = useState<string[]>(validInitialIds);
   const [eventDate, setEventDate] = useState("");
   const [county, setCounty] = useState("");
@@ -115,6 +116,7 @@ export function BookingFlow({ options, status, initialServiceIds }: BookingFlowP
   const [isPending, startTransition] = useTransition();
 
   const settings = options.settings;
+  const selectedEventType = options.eventTypes.find((item) => item.id === eventTypeId);
   const eventSizes = useMemo(
     () => options.eventTypeSizes.filter((size) => size.event_type_id === eventTypeId),
     [eventTypeId, options.eventTypeSizes],
@@ -125,11 +127,23 @@ export function BookingFlow({ options, status, initialServiceIds }: BookingFlowP
   const availableServices = eventTypeId
     ? options.services.filter((service) => availableServiceIds.includes(service.id))
     : options.services;
+  const selectedServices = options.services.filter((service) =>
+    serviceIds.includes(service.id),
+  );
+  const halfDayAvailable =
+    Boolean(selectedEventType?.supports_half_day) &&
+    serviceIds.length > 0 &&
+    selectedServices.every((service) => service.supports_half_day);
+  const incompatibleSelectedServices = selectedServices.filter(
+    (service) => !service.supports_half_day,
+  );
+  const activeDuration: BookingDuration = halfDayAvailable ? duration : "full_day";
   const selectedPrices = options.servicePrices.filter(
     (price) =>
       price.event_type_id === eventTypeId &&
       price.event_type_size_id === eventSizeId &&
-      serviceIds.includes(price.service_id),
+      serviceIds.includes(price.service_id) &&
+      price.duration === activeDuration,
   );
 
   function resetPayment() {
@@ -143,21 +157,37 @@ export function BookingFlow({ options, status, initialServiceIds }: BookingFlowP
   function updateEventType(value: string) {
     setEventTypeId(value);
     setEventSizeId("");
+    const nextEventType = options.eventTypes.find((item) => item.id === value);
     const allowedIds = options.eventTypeServices
       .filter((item) => item.event_type_id === value)
       .map((item) => item.service_id);
     setServiceIds((current) => current.filter((id) => allowedIds.includes(id)));
+    if (!nextEventType?.supports_half_day) {
+      setDuration("full_day");
+    }
     setQuoteResult(null);
     setStep("details");
     resetPayment();
   }
 
   function toggleService(serviceId: string) {
-    setServiceIds((current) =>
-      current.includes(serviceId)
+    setServiceIds((current) => {
+      const next = current.includes(serviceId)
         ? current.filter((id) => id !== serviceId)
-        : [...current, serviceId],
-    );
+        : [...current, serviceId];
+
+      if (duration === "half_day") {
+        const nextServices = options.services.filter((service) =>
+          next.includes(service.id),
+        );
+
+        if (!nextServices.length || nextServices.some((service) => !service.supports_half_day)) {
+          setDuration("full_day");
+        }
+      }
+
+      return next;
+    });
     setQuoteResult(null);
     resetPayment();
   }
@@ -184,6 +214,7 @@ export function BookingFlow({ options, status, initialServiceIds }: BookingFlowP
       const result = await prepareBookingQuoteAction({
         eventTypeId,
         eventSizeId,
+        duration: activeDuration,
         serviceIds,
         eventDate,
         county: county as (typeof KENYAN_COUNTIES)[number],
@@ -267,6 +298,7 @@ export function BookingFlow({ options, status, initialServiceIds }: BookingFlowP
         attemptKey,
         eventTypeId,
         eventSizeId,
+        duration: activeDuration,
         serviceIds,
         eventDate,
         county,
@@ -391,6 +423,66 @@ export function BookingFlow({ options, status, initialServiceIds }: BookingFlowP
                 </div>
               </FieldError>
             </div>
+
+            <FieldError error={fieldErrors.duration?.[0]}>
+              <Label>Event duration</Label>
+              {selectedEventType?.supports_half_day ? (
+                <div className="space-y-2">
+                  <div className="grid grid-cols-2 gap-2">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setDuration("full_day");
+                        setQuoteResult(null);
+                        resetPayment();
+                      }}
+                      className={cn(
+                        "h-12 rounded-2xl border px-3 text-sm font-black transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-400",
+                        activeDuration === "full_day"
+                          ? "border-neutral-950 bg-neutral-950 text-white"
+                          : "border-neutral-300 bg-neutral-50 text-neutral-950 hover:border-amber-500",
+                      )}
+                    >
+                      Full Day
+                    </button>
+                    <button
+                      type="button"
+                      disabled={!halfDayAvailable}
+                      onClick={() => {
+                        setDuration("half_day");
+                        setQuoteResult(null);
+                        resetPayment();
+                      }}
+                      className={cn(
+                        "h-12 rounded-2xl border px-3 text-sm font-black transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-400 disabled:cursor-not-allowed disabled:opacity-50",
+                        activeDuration === "half_day"
+                          ? "border-neutral-950 bg-neutral-950 text-white"
+                          : "border-neutral-300 bg-neutral-50 text-neutral-950 hover:border-amber-500",
+                      )}
+                    >
+                      Half Day
+                    </button>
+                  </div>
+                  {!halfDayAvailable ? (
+                    <p className="text-xs text-neutral-500">
+                      Half Day is available only when all selected services support it.
+                      {incompatibleSelectedServices.length
+                        ? ` Full Day only: ${incompatibleSelectedServices.map((service) => service.name).join(", ")}.`
+                        : ""}
+                    </p>
+                  ) : null}
+                </div>
+              ) : (
+                <div className="rounded-2xl border border-neutral-300 bg-neutral-50 p-3 text-sm">
+                  <span className="font-black text-neutral-950">Full Day</span>
+                  <p className="mt-1 text-xs text-neutral-500">
+                    {eventTypeId
+                      ? "This event type is configured for Full Day bookings."
+                      : "Select an event type first."}
+                  </p>
+                </div>
+              )}
+            </FieldError>
 
             <FieldError error={fieldErrors.serviceIds?.[0]}>
               <Label>Services</Label>
@@ -654,6 +746,7 @@ function Checkout({
                 label="Size"
                 value={`${quote.eventSizeLabel} - ${quote.eventSizeRange}`}
               />
+              <ReceiptRow label="Duration" value={quote.durationLabel} />
               <ReceiptRow
                 label="Reservation paid"
                 value={formatMoney(quote.reservationFeeAmount, quote.currency)}
@@ -698,6 +791,7 @@ function Checkout({
         <div className="grid gap-3 sm:grid-cols-2">
           <SummaryItem label="Event" value={quote.eventTypeName} />
           <SummaryItem label="Size" value={`${quote.eventSizeLabel} - ${quote.eventSizeRange}`} />
+          <SummaryItem label="Duration" value={quote.durationLabel} />
           <SummaryItem label="Date" value={format(new Date(eventDate), "MMM d, yyyy")} />
           <SummaryItem label="Reservation" value={formatMoney(quote.reservationFeeAmount, quote.currency)} />
         </div>
@@ -739,6 +833,7 @@ function Checkout({
       <div className="grid gap-3 sm:grid-cols-2">
         <SummaryItem label="Event" value={quote.eventTypeName} />
         <SummaryItem label="Size" value={`${quote.eventSizeLabel} - ${quote.eventSizeRange}`} />
+        <SummaryItem label="Duration" value={quote.durationLabel} />
         <SummaryItem label="Date" value={format(new Date(eventDate), "MMM d, yyyy")} />
         <SummaryItem label="Location" value={`${county} - ${townCentre} - ${exactLocation}`} />
       </div>

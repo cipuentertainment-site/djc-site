@@ -18,6 +18,8 @@ export type BookingQuoteResult =
       eventTypeName: string;
       eventSizeLabel: string;
       eventSizeRange: string;
+      duration: "full_day" | "half_day";
+      durationLabel: string;
       dateAvailabilityMessage: string;
       canSubmitBooking: true;
       submissionMessage: string;
@@ -66,6 +68,13 @@ export async function prepareBookingQuoteAction(
     return { ok: false, message: "Selected event configuration is unavailable." };
   }
 
+  if (parsed.data.duration === "half_day" && !eventType.supports_half_day) {
+    return {
+      ok: false,
+      message: "Half Day is not available for this event type.",
+    };
+  }
+
   const dateAvailability = await getDateAvailability(parsed.data.eventDate);
 
   if (!dateAvailability?.is_available) {
@@ -85,10 +94,16 @@ export async function prepareBookingQuoteAction(
       (item) =>
         item.service_id === serviceId &&
         item.event_type_id === eventType.id &&
-        item.event_type_size_id === eventSize.id,
+        item.event_type_size_id === eventSize.id &&
+        item.duration === parsed.data.duration,
     );
 
-    if (!isAvailableForEventType || !service || !price) {
+    if (
+      !isAvailableForEventType ||
+      !service ||
+      !price ||
+      (parsed.data.duration === "half_day" && !service.supports_half_day)
+    ) {
       return null;
     }
 
@@ -124,6 +139,8 @@ export async function prepareBookingQuoteAction(
     eventTypeName: eventType.name,
     eventSizeLabel: eventSize.label,
     eventSizeRange: `${eventSize.min_attendees}-${eventSize.max_attendees} guests`,
+    duration: parsed.data.duration,
+    durationLabel: parsed.data.duration === "half_day" ? "Half Day" : "Full Day",
     dateAvailabilityMessage: `${remainingSlots} slot${remainingSlots === 1 ? "" : "s"} remaining.`,
     canSubmitBooking: true,
     submissionMessage: "Review the estimate, then pay the reservation fee with M-Pesa.",
