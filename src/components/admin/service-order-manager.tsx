@@ -23,6 +23,11 @@ export function ServiceOrderManager({ services }: ServiceOrderManagerProps) {
   const [result, setResult] = useState<AdminActionResult>();
   const [isPending, startTransition] = useTransition();
   const servicesById = new Map(services.map((service) => [service.id, service]));
+  const homepageIds = new Set(
+    orderedIds
+      .filter((id) => servicesById.get(id)?.is_active !== false)
+      .slice(0, 4),
+  );
   const hasChanges = orderedIds.join(",") !== initialIds.join(",");
 
   function move(id: string, direction: -1 | 1) {
@@ -57,7 +62,7 @@ export function ServiceOrderManager({ services }: ServiceOrderManagerProps) {
       <CardHeader>
         <CardTitle>Homepage service order</CardTitle>
         <CardDescription>
-          Arrange the services by importance. This order controls the homepage service presets.
+          Arrange services by importance. The first four active services appear on the homepage.
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
@@ -82,6 +87,7 @@ export function ServiceOrderManager({ services }: ServiceOrderManagerProps) {
                   <p className="truncate text-sm font-semibold">{service.name}</p>
                   <p className="text-xs text-muted-foreground">
                     Position {index + 1}
+                    {homepageIds.has(id) ? " - homepage" : " - hidden from homepage"}
                     {service.is_active === false ? " - inactive" : ""}
                   </p>
                 </div>

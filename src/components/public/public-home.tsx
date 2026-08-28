@@ -132,7 +132,7 @@ export function PublicHome({ options, status, errorMessage }: PublicHomeProps) {
           </div>
         </header>
 
-        <section className="grid flex-1 gap-6 py-6 lg:grid-cols-[0.72fr_1.28fr] lg:items-start lg:py-8">
+        <section className="grid gap-4 py-5 lg:grid-cols-[minmax(220px,0.55fr)_minmax(0,1.45fr)] lg:items-start lg:gap-5 lg:py-6">
           <div className="space-y-3">
             <p className="text-xs font-bold uppercase tracking-[0.18em] text-amber-700">
               Services

@@ -3,7 +3,6 @@ import { AdminPageHeader } from "@/components/admin/admin-page-header";
 import { EmptyState } from "@/components/admin/empty-state";
 import { ServiceActions } from "@/components/admin/service-actions";
 import { ServiceForm } from "@/components/admin/service-form";
-import { ServiceOrderManager } from "@/components/admin/service-order-manager";
 import { StatusBadge } from "@/components/admin/status-badge";
 import {
   Card,
@@ -36,8 +35,6 @@ export default async function ServicesPage() {
       ) : null}
 
       <ServiceForm />
-
-      <ServiceOrderManager services={data.services} />
 
       <div className="grid gap-4 lg:grid-cols-2">
         {data.services.length ? (

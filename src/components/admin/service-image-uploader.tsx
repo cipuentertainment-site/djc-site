@@ -13,7 +13,10 @@ type ServiceImageUploaderProps = {
   serviceId?: string;
 };
 
-const maxFileSize = 3 * 1024 * 1024;
+const maxSourceFileSize = 12 * 1024 * 1024;
+const maxUploadFileSize = 3 * 1024 * 1024;
+const maxImageDimension = 1600;
+const imageQuality = 0.82;
 const allowedExtensions = ["jpg", "jpeg", "png", "webp", "gif", "avif"];
 const extensionContentTypes: Record<string, string> = {
   avif: "image/avif",
@@ -23,6 +26,85 @@ const extensionContentTypes: Record<string, string> = {
   png: "image/png",
   webp: "image/webp",
 };
+
+async function imageToBitmap(file: File) {
+  if ("createImageBitmap" in window) {
+    return window.createImageBitmap(file);
+  }
+
+  const url = URL.createObjectURL(file);
+
+  try {
+    const image = new Image();
+    image.src = url;
+    await image.decode();
+    return image;
+  } finally {
+    URL.revokeObjectURL(url);
+  }
+}
+
+async function compressImage(file: File, extension: string) {
+  if (extension === "gif") {
+    return {
+      file,
+      extension,
+      contentType: file.type || extensionContentTypes[extension] || "image/gif",
+      compressed: false,
+    };
+  }
+
+  try {
+    const bitmap = await imageToBitmap(file);
+    const width = "naturalWidth" in bitmap ? bitmap.naturalWidth : bitmap.width;
+    const height = "naturalHeight" in bitmap ? bitmap.naturalHeight : bitmap.height;
+    const scale = Math.min(1, maxImageDimension / Math.max(width, height));
+    const canvas = document.createElement("canvas");
+    canvas.width = Math.max(1, Math.round(width * scale));
+    canvas.height = Math.max(1, Math.round(height * scale));
+
+    const context = canvas.getContext("2d");
+
+    if (!context) {
+      throw new Error("Canvas is unavailable.");
+    }
+
+    context.drawImage(bitmap, 0, 0, canvas.width, canvas.height);
+
+    if ("close" in bitmap) {
+      bitmap.close();
+    }
+
+    const blob = await new Promise<Blob | null>((resolve) => {
+      canvas.toBlob(resolve, "image/webp", imageQuality);
+    });
+
+    if (!blob || blob.size >= file.size) {
+      return {
+        file,
+        extension,
+        contentType: file.type || extensionContentTypes[extension] || "image/jpeg",
+        compressed: false,
+      };
+    }
+
+    return {
+      file: new File([blob], file.name.replace(/\.[^.]+$/, ".webp"), {
+        type: "image/webp",
+      }),
+      extension: "webp",
+      contentType: "image/webp",
+      compressed: true,
+    };
+  } catch {
+    return {
+      file,
+      extension,
+      contentType: file.type || extensionContentTypes[extension] || "image/jpeg",
+      compressed: false,
+    };
+  }
+}
 
 export function ServiceImageUploader({
   value,
@@ -47,8 +129,8 @@ export function ServiceImageUploader({
       return;
     }
 
-    if (file.size > maxFileSize) {
-      setMessage("Use an image smaller than 3 MB.");
+    if (file.size > maxSourceFileSize) {
+      setMessage("Use an image smaller than 12 MB.");
       return;
     }
 
@@ -56,14 +138,21 @@ export function ServiceImageUploader({
       setMessage(undefined);
       const supabase = createSupabaseBrowserClient();
       const safeExtension = isAllowedExtension ? extension : "jpg";
-      const path = `${serviceId ?? "new"}/${crypto.randomUUID()}.${safeExtension}`;
+      const optimized = await compressImage(file, safeExtension);
+
+      if (optimized.file.size > maxUploadFileSize) {
+        setMessage("Image is still too large after optimization. Use a smaller image.");
+        return;
+      }
+
+      const path = `${serviceId ?? "new"}/${crypto.randomUUID()}.${optimized.extension}`;
       const oldPath = value || null;
       const { error } = await supabase.storage
         .from(serviceImagesBucket)
-        .upload(path, file, {
+        .upload(path, optimized.file, {
           cacheControl: "31536000",
           upsert: false,
-          contentType: file.type || extensionContentTypes[safeExtension] || "image/jpeg",
+          contentType: optimized.contentType,
         });
 
       if (error) {
@@ -72,6 +161,11 @@ export function ServiceImageUploader({
       }
 
       onChange(path);
+      setMessage(
+        optimized.compressed
+          ? "Image optimized for fast loading. Save the service to keep it."
+          : "Image uploaded. Save the service to keep it.",
+      );
 
       if (oldPath) {
         await supabase.storage.from(serviceImagesBucket).remove([oldPath]);

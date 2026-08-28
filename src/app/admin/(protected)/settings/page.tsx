@@ -1,5 +1,6 @@
 import { AdminAlert } from "@/components/admin/admin-alert";
 import { AdminPageHeader } from "@/components/admin/admin-page-header";
+import { ServiceOrderManager } from "@/components/admin/service-order-manager";
 import { SettingsForm } from "@/components/admin/settings-form";
 import { getAdminConfigData } from "@/lib/supabase/admin-data";
 
@@ -23,6 +24,7 @@ export default async function SettingsPage() {
         />
       ) : null}
       <SettingsForm settings={config.data.settings} />
+      <ServiceOrderManager services={config.data.services} />
     </div>
   );
 }
