@@ -86,7 +86,7 @@ export async function POST(request: Request) {
     if (!finalized.ok) {
       console.error("M-Pesa callback payment succeeded but booking was not finalized.", {
         paymentId: payment.data.id,
-        message: finalized.message,
+        message: "message" in finalized ? finalized.message : "Unknown finalization error.",
       });
     }
   }

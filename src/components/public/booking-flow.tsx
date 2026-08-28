@@ -68,6 +68,12 @@ type PaymentStatusResponse = {
   message?: string | null;
 };
 
+type ManualSubmissionResponse = {
+  ok: boolean;
+  bookingId?: string;
+  message?: string;
+};
+
 function createAttemptKey() {
   if (typeof crypto !== "undefined" && "randomUUID" in crypto) {
     return crypto.randomUUID();
@@ -287,7 +293,55 @@ export function BookingFlow({ options, status, initialServiceIds }: BookingFlowP
     }
 
     setPaymentState("initiating");
-    setPaymentMessage("Sending payment request...");
+    setPaymentMessage(
+      options.paymentMode === "manual"
+        ? "Submitting your booking request..."
+        : "Sending payment request...",
+    );
+
+    if (options.paymentMode === "manual") {
+      const response = await fetch("/api/bookings/manual", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          attemptKey,
+          eventTypeId,
+          eventSizeId,
+          duration: activeDuration,
+          serviceIds,
+          eventDate,
+          county,
+          townCentre,
+          exactLocation,
+          customerName,
+          customerPhone,
+          customerEmail,
+          mpesaPhone,
+          legalConsent,
+        }),
+      });
+      const result = (await response.json().catch(() => null)) as
+        | ManualSubmissionResponse
+        | null;
+
+      if (!response.ok || !result?.ok || !result.bookingId) {
+        setPaymentState("failed");
+        setPaymentMessage(result?.message ?? "Booking request could not be submitted.");
+        setAttemptKey(createAttemptKey());
+        return;
+      }
+
+      setPaymentState("success");
+      setBookingId(result.bookingId);
+      setReferenceId(result.bookingId);
+      setPaymentReceipt(null);
+      setPaymentMessage(
+        result.message ?? "Request received. We will contact you to confirm the booking.",
+      );
+      return;
+    }
 
     const response = await fetch("/api/payments/mpesa/initiate", {
       method: "POST",
@@ -354,7 +408,11 @@ export function BookingFlow({ options, status, initialServiceIds }: BookingFlowP
               {step === "details" ? "Book an event" : "Review estimate"}
             </p>
             <h1 className="mt-1 text-2xl font-black tracking-normal sm:text-3xl">
-              {step === "details" ? "Tell us about the event." : "Reserve your request."}
+              {step === "details"
+                ? "Tell us about the event."
+                : options.paymentMode === "manual"
+                  ? "Review your request."
+                  : "Reserve your request."}
             </h1>
           </div>
           {step === "checkout" && paymentState !== "success" ? (
@@ -629,6 +687,7 @@ export function BookingFlow({ options, status, initialServiceIds }: BookingFlowP
             bookingId={bookingId}
             referenceId={referenceId}
             paymentReceipt={paymentReceipt}
+            paymentMode={options.paymentMode}
             onReserve={reserveEvent}
           />
         )}
@@ -694,6 +753,7 @@ function Checkout({
   bookingId,
   referenceId,
   paymentReceipt,
+  paymentMode,
   onReserve,
 }: {
   quote: Extract<BookingQuoteResult, { ok: true }> | null;
@@ -708,6 +768,7 @@ function Checkout({
   bookingId: string | null;
   referenceId: string | null;
   paymentReceipt: string | null;
+  paymentMode: "manual" | "mpesa";
   onReserve: () => void;
 }) {
   const [copied, setCopied] = useState(false);
@@ -735,7 +796,9 @@ function Checkout({
               <div className="mb-2 flex h-12 w-12 items-center justify-center rounded-full bg-emerald-600 text-white">
                 <CheckCircle2 className="h-6 w-6" aria-hidden="true" />
               </div>
-              <DialogTitle className="text-2xl font-black">Payment received</DialogTitle>
+              <DialogTitle className="text-2xl font-black">
+                {paymentMode === "manual" ? "Request received" : "Payment received"}
+              </DialogTitle>
               <DialogDescription>
                 Screenshot this receipt or copy the reference.
               </DialogDescription>
@@ -748,13 +811,19 @@ function Checkout({
               />
               <ReceiptRow label="Duration" value={quote.durationLabel} />
               <ReceiptRow
-                label="Reservation paid"
-                value={formatMoney(quote.reservationFeeAmount, quote.currency)}
+                label={paymentMode === "manual" ? "Reservation fee" : "Reservation paid"}
+                value={
+                  paymentMode === "manual"
+                    ? `${formatMoney(quote.reservationFeeAmount, quote.currency)} pending`
+                    : formatMoney(quote.reservationFeeAmount, quote.currency)
+                }
               />
-              <ReceiptRow
-                label="M-Pesa receipt"
-                value={paymentReceipt ?? "Pending from M-Pesa"}
-              />
+              {paymentMode === "mpesa" ? (
+                <ReceiptRow
+                  label="M-Pesa receipt"
+                  value={paymentReceipt ?? "Pending from M-Pesa"}
+                />
+              ) : null}
               <ReceiptRow
                 label="Services"
                 value={quote.selectedServices.map((item) => item.service.name).join(", ")}
@@ -785,7 +854,7 @@ function Checkout({
           </div>
           <h2 className="mt-4 text-2xl font-black">Request received</h2>
           <p className="mt-2 text-sm text-emerald-900/75">
-            Your event request has been received. The business will contact you to finalize the event.
+            Your event request has been received. DJC Entertainment will contact you to confirm the details and reservation.
           </p>
         </div>
         <div className="grid gap-3 sm:grid-cols-2">
@@ -793,16 +862,25 @@ function Checkout({
           <SummaryItem label="Size" value={`${quote.eventSizeLabel} - ${quote.eventSizeRange}`} />
           <SummaryItem label="Duration" value={quote.durationLabel} />
           <SummaryItem label="Date" value={format(new Date(eventDate), "MMM d, yyyy")} />
-          <SummaryItem label="Reservation" value={formatMoney(quote.reservationFeeAmount, quote.currency)} />
+          <SummaryItem
+            label="Reservation"
+            value={
+              paymentMode === "manual"
+                ? `${formatMoney(quote.reservationFeeAmount, quote.currency)} pending`
+                : formatMoney(quote.reservationFeeAmount, quote.currency)
+            }
+          />
         </div>
-        <div className="rounded-2xl border border-black/10 bg-white p-3">
-          <p className="text-xs font-bold uppercase tracking-[0.16em] text-neutral-400">
-            M-Pesa receipt
-          </p>
-          <p className="mt-1 font-semibold text-neutral-950">
-            {paymentReceipt ?? "Pending from M-Pesa"}
-          </p>
-        </div>
+        {paymentMode === "mpesa" ? (
+          <div className="rounded-2xl border border-black/10 bg-white p-3">
+            <p className="text-xs font-bold uppercase tracking-[0.16em] text-neutral-400">
+              M-Pesa receipt
+            </p>
+            <p className="mt-1 font-semibold text-neutral-950">
+              {paymentReceipt ?? "Pending from M-Pesa"}
+            </p>
+          </div>
+        ) : null}
         {referenceId ? (
           <div className="rounded-2xl border border-black/10 bg-neutral-50 p-3">
             <p className="text-xs font-bold uppercase tracking-[0.16em] text-neutral-400">
@@ -862,17 +940,23 @@ function Checkout({
         <p className="mt-3 text-sm text-white/65">{quote.transportDisclaimer}</p>
       </div>
 
-      <div className="space-y-2">
-        <Label>M-Pesa number</Label>
-        <Input
-          inputMode="tel"
-          value={mpesaPhone}
-          onChange={(event) => setMpesaPhone(event.target.value)}
-          className="h-12 border-neutral-300 bg-white text-neutral-950"
-          placeholder="07XX XXX XXX"
-          disabled={isBusy}
-        />
-      </div>
+      {paymentMode === "manual" ? (
+        <div className="rounded-2xl border border-amber-200 bg-amber-50 p-3 text-sm text-neutral-800">
+          Online reservation payment is currently unavailable. Submit your request and DJC Entertainment will contact you to confirm your booking.
+        </div>
+      ) : (
+        <div className="space-y-2">
+          <Label>M-Pesa number</Label>
+          <Input
+            inputMode="tel"
+            value={mpesaPhone}
+            onChange={(event) => setMpesaPhone(event.target.value)}
+            className="h-12 border-neutral-300 bg-white text-neutral-950"
+            placeholder="07XX XXX XXX"
+            disabled={isBusy}
+          />
+        </div>
+      )}
 
       <Button
         className="h-12 w-full bg-amber-400 text-black hover:bg-amber-300"
@@ -887,10 +971,14 @@ function Checkout({
           <Sparkles className="h-4 w-4" />
         )}
         {paymentState === "initiating"
-          ? "Sending payment request..."
+          ? paymentMode === "manual"
+            ? "Submitting request..."
+            : "Sending payment request..."
           : paymentState === "waiting"
             ? "Check your phone"
-            : "Reserve event"}
+            : paymentMode === "manual"
+              ? "Submit booking request"
+              : "Reserve event"}
       </Button>
 
       {paymentMessage ? (
@@ -906,7 +994,9 @@ function Checkout({
         </p>
       ) : (
         <p className="text-xs text-neutral-500">
-          You are paying the reservation fee only. The full event amount is handled after the business contacts you.
+          {paymentMode === "manual"
+            ? "No online payment will be recorded. The team will confirm reservation details with you directly."
+            : "You are paying the reservation fee only. The full event amount is handled after the business contacts you."}
         </p>
       )}
     </div>

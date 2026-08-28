@@ -10,7 +10,7 @@ export type ValidatedBookingPayload = {
   internalReference: string;
   amount: number;
   currency: string;
-  mpesaPhone: string;
+  mpesaPhone: string | null;
   bookingPayload: {
     eventTypeId: string;
     eventTypeName: string;
@@ -47,8 +47,9 @@ type ValidationResult =
   | { ok: true; data: ValidatedBookingPayload }
   | { ok: false; message: string };
 
-export async function validateBookingForPayment(
+async function validateBookingPayload(
   input: BookingQuoteInput,
+  options: { requireMpesaPhone: boolean },
 ): Promise<ValidationResult> {
   const parsed = bookingQuoteSchema.safeParse(input);
 
@@ -58,7 +59,7 @@ export async function validateBookingForPayment(
 
   const mpesaPhone = normalizeKenyanPhone(parsed.data.mpesaPhone || parsed.data.customerPhone);
 
-  if (!mpesaPhone) {
+  if (options.requireMpesaPhone && !mpesaPhone) {
     return { ok: false, message: "Enter a valid M-Pesa phone number." };
   }
 
@@ -217,32 +218,32 @@ export async function validateBookingForPayment(
   };
 }
 
-export async function finalizeBookingFromPayment(paymentId: string) {
+export async function validateBookingForPayment(
+  input: BookingQuoteInput,
+): Promise<ValidationResult> {
+  return validateBookingPayload(input, { requireMpesaPhone: true });
+}
+
+export async function validateBookingForManualSubmission(
+  input: BookingQuoteInput,
+): Promise<ValidationResult> {
+  return validateBookingPayload(input, { requireMpesaPhone: false });
+}
+
+export async function createBookingFromPayload(
+  payload: ValidatedBookingPayload["bookingPayload"],
+  payment: {
+    reservationFeePaymentStatus: "pending" | "paid" | "failed" | "refunded";
+    reservationFeePaymentReference?: string | null;
+    reservationFeePaidAt?: string | null;
+  },
+) {
   const supabase = createSupabaseAdminClient();
 
   if (!supabase) {
     return { ok: false, message: "Server Supabase configuration is incomplete." };
   }
 
-  const payment = await supabase
-    .from("reservation_payments")
-    .select("id,booking_id,status,booking_payload,mpesa_receipt_number,paid_at")
-    .eq("id", paymentId)
-    .single();
-
-  if (payment.error || !payment.data) {
-    return { ok: false, message: "Payment record not found." };
-  }
-
-  if (payment.data.booking_id) {
-    return { ok: true, bookingId: payment.data.booking_id as string };
-  }
-
-  if (payment.data.status !== "success") {
-    return { ok: false, message: "Payment is not successful." };
-  }
-
-  const payload = payment.data.booking_payload as ValidatedBookingPayload["bookingPayload"];
   const booking = await supabase
     .from("bookings")
     .insert({
@@ -263,9 +264,9 @@ export async function finalizeBookingFromPayment(paymentId: string) {
       currency: payload.currency,
       transport_disclaimer_snapshot: payload.transportDisclaimer,
       reservation_fee_amount: payload.reservationFeeAmount,
-      reservation_fee_payment_status: "paid",
-      reservation_fee_payment_reference: payment.data.mpesa_receipt_number,
-      reservation_fee_paid_at: payment.data.paid_at,
+      reservation_fee_payment_status: payment.reservationFeePaymentStatus,
+      reservation_fee_payment_reference: payment.reservationFeePaymentReference ?? null,
+      reservation_fee_paid_at: payment.reservationFeePaidAt ?? null,
       terms_accepted_at: payload.termsAcceptedAt,
       terms_version: payload.termsVersion,
       privacy_notice_version: payload.privacyNoticeVersion,
@@ -293,11 +294,52 @@ export async function finalizeBookingFromPayment(paymentId: string) {
     return { ok: false, message: serviceInsert.error.message };
   }
 
+  return { ok: true, bookingId: booking.data.id as string };
+}
+
+export async function finalizeBookingFromPayment(paymentId: string) {
+  const supabase = createSupabaseAdminClient();
+
+  if (!supabase) {
+    return { ok: false, message: "Server Supabase configuration is incomplete." };
+  }
+
+  const payment = await supabase
+    .from("reservation_payments")
+    .select("id,booking_id,status,booking_payload,mpesa_receipt_number,paid_at")
+    .eq("id", paymentId)
+    .single();
+
+  if (payment.error || !payment.data) {
+    return { ok: false, message: "Payment record not found." };
+  }
+
+  if (payment.data.booking_id) {
+    return { ok: true, bookingId: payment.data.booking_id as string };
+  }
+
+  if (payment.data.status !== "success") {
+    return { ok: false, message: "Payment is not successful." };
+  }
+
+  const created = await createBookingFromPayload(
+    payment.data.booking_payload as ValidatedBookingPayload["bookingPayload"],
+    {
+      reservationFeePaymentStatus: "paid",
+      reservationFeePaymentReference: payment.data.mpesa_receipt_number,
+      reservationFeePaidAt: payment.data.paid_at,
+    },
+  );
+
+  if (!created.ok) {
+    return created;
+  }
+
   await supabase
     .from("reservation_payments")
-    .update({ booking_id: booking.data.id })
+    .update({ booking_id: created.bookingId })
     .eq("id", paymentId)
     .is("booking_id", null);
 
-  return { ok: true, bookingId: booking.data.id as string };
+  return { ok: true, bookingId: created.bookingId };
 }

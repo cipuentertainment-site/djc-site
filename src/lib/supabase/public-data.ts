@@ -1,4 +1,5 @@
 import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { bookingPaymentMode } from "@/lib/supabase/config";
 import type {
   BookingOptions,
   DateAvailability,
@@ -16,6 +17,7 @@ type PublicDataResult =
   | { status: "error"; message: string; data: BookingOptions };
 
 const emptyOptions: BookingOptions = {
+  paymentMode: bookingPaymentMode,
   settings: null,
   eventTypes: [],
   eventTypeSizes: [],
@@ -76,6 +78,7 @@ export async function getPublicBookingOptions(): Promise<PublicDataResult> {
     servicePrices.error;
 
   const data: BookingOptions = {
+    paymentMode: bookingPaymentMode,
     settings: (settings.data as PublicBookingSettings | null) ?? null,
     eventTypes: (eventTypes.data as PublicEventType[] | null) ?? [],
     eventTypeSizes: (eventTypeSizes.data as PublicEventTypeSize[] | null) ?? [],

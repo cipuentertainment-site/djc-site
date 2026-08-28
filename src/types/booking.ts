@@ -1,5 +1,6 @@
 export type EventSizeLabel = "small" | "medium" | "large";
 export type BookingDuration = "full_day" | "half_day";
+export type BookingPaymentMode = "manual" | "mpesa";
 
 export type PublicEventType = {
   id: string;
@@ -73,6 +74,7 @@ export type DateAvailability = {
 };
 
 export type BookingOptions = {
+  paymentMode: BookingPaymentMode;
   settings: PublicBookingSettings | null;
   eventTypes: PublicEventType[];
   eventTypeSizes: PublicEventTypeSize[];

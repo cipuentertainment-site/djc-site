@@ -41,6 +41,13 @@ export async function POST(request: Request) {
     );
   }
 
+  if (!validated.data.mpesaPhone) {
+    return NextResponse.json(
+      { ok: false, message: "Enter a valid M-Pesa phone number." },
+      { status: 400 },
+    );
+  }
+
   const payment = await supabase
     .from("reservation_payments")
     .insert({

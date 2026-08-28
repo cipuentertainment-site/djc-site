@@ -16,6 +16,8 @@ export const mpesaPasskey = process.env.MPESA_PASSKEY;
 export const mpesaCallbackUrl = process.env.MPESA_CALLBACK_URL;
 export const mpesaTransactionType =
   process.env.MPESA_TRANSACTION_TYPE ?? "CustomerPayBillOnline";
+export const bookingPaymentMode =
+  process.env.BOOKING_PAYMENT_MODE === "mpesa" ? "mpesa" : "manual";
 
 export function hasSupabaseConfig() {
   return Boolean(supabaseUrl && supabasePublishableKey);

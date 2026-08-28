@@ -24,6 +24,10 @@ function formatDuration(duration: AdminBookingListItem["duration"]) {
   return duration === "half_day" ? "Half Day" : "Full Day";
 }
 
+function formatPaymentStatus(status: string) {
+  return status.replace(/_/g, " ");
+}
+
 export function BookingsTable({ bookings, compact = false }: BookingsTableProps) {
   return (
     <Table>
@@ -78,7 +82,12 @@ export function BookingsTable({ bookings, compact = false }: BookingsTableProps)
               <StatusBadge status={booking.status} />
             </TableCell>
             <TableCell>
-              {formatMoney(booking.estimated_service_total_amount, booking.currency)}
+              <div>
+                {formatMoney(booking.estimated_service_total_amount, booking.currency)}
+              </div>
+              <div className="text-xs capitalize text-muted-foreground">
+                Reservation {formatPaymentStatus(booking.reservation_fee_payment_status)}
+              </div>
             </TableCell>
             <TableCell>
               <Button asChild variant="outline" size="sm">

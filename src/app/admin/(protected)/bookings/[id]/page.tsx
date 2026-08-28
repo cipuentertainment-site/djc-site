@@ -35,6 +35,10 @@ function formatDuration(duration: AdminBookingDetail["duration"]) {
   return duration === "half_day" ? "Half Day" : "Full Day";
 }
 
+function formatPaymentStatus(status: string) {
+  return status.replace(/_/g, " ");
+}
+
 export default async function BookingDetailPage({ params }: BookingDetailPageProps) {
   const { id } = await params;
   const booking = await getAdminBookingDetail(id);
@@ -165,6 +169,20 @@ export default async function BookingDetailPage({ params }: BookingDetailPagePro
                 {formatMoney(item.reservation_fee_amount, item.currency)}
               </span>
             </p>
+            <p className="capitalize">
+              Reservation payment:{" "}
+              <span className="font-medium">
+                {formatPaymentStatus(item.reservation_fee_payment_status)}
+              </span>
+            </p>
+            {item.reservation_fee_payment_reference ? (
+              <p>
+                Payment reference:{" "}
+                <span className="font-medium">
+                  {item.reservation_fee_payment_reference}
+                </span>
+              </p>
+            ) : null}
             <p>Transport: Quoted separately</p>
             <p className="text-muted-foreground">
               {item.transport_disclaimer_snapshot}
