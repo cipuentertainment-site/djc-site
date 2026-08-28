@@ -2,7 +2,7 @@
 
 import Image from "next/image";
 import Link from "next/link";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { ArrowRight, Check } from "lucide-react";
 
 import { ServiceImage } from "@/components/public/service-image";
@@ -22,16 +22,15 @@ export function PublicHome({ options, status, errorMessage }: PublicHomeProps) {
   const settings = options.settings;
   const businessName = settings?.business_name ?? "DJC Entertainment";
   const currentYear = new Date().getFullYear();
-  const serviceImageUrls = options.services
-    .map((service) => getServiceImageUrl(service.image_path))
-    .filter((url): url is string => Boolean(url));
-  const [heroImageUrl] = useState(() => {
-    if (!serviceImageUrls.length) {
-      return null;
-    }
-
-    return serviceImageUrls[Math.floor(Math.random() * serviceImageUrls.length)];
-  });
+  const featuredServices = useMemo(() => options.services.slice(0, 4), [options.services]);
+  const serviceImageUrls = useMemo(
+    () =>
+      featuredServices
+        .map((service) => getServiceImageUrl(service.image_path))
+        .filter((url): url is string => Boolean(url)),
+    [featuredServices],
+  );
+  const [heroImageUrl, setHeroImageUrl] = useState<string | null>(null);
   const bookHref = useMemo(() => {
     const params = new URLSearchParams();
 
@@ -49,6 +48,23 @@ export function PublicHome({ options, status, errorMessage }: PublicHomeProps) {
         : [...current, service.id],
     );
   }
+
+  useEffect(() => {
+    const timer = window.setTimeout(() => {
+      if (!serviceImageUrls.length) {
+        setHeroImageUrl(null);
+        return;
+      }
+
+      const randomValue =
+        typeof crypto !== "undefined"
+          ? crypto.getRandomValues(new Uint32Array(1))[0] ?? 0
+          : Date.now();
+      setHeroImageUrl(serviceImageUrls[randomValue % serviceImageUrls.length] ?? null);
+    }, 0);
+
+    return () => window.clearTimeout(timer);
+  }, [serviceImageUrls]);
 
   return (
     <main className="min-h-screen bg-[#f7f4ee] text-neutral-950">
@@ -134,9 +150,9 @@ export function PublicHome({ options, status, errorMessage }: PublicHomeProps) {
           </div>
 
           <div id="services" className="space-y-3">
-            {status === "ready" && options.services.length ? (
-              <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-                {options.services.map((service) => {
+            {status === "ready" && featuredServices.length ? (
+              <div className="grid gap-3 sm:grid-cols-2">
+                {featuredServices.map((service) => {
                   const selected = selectedServiceIds.includes(service.id);
 
                   return (

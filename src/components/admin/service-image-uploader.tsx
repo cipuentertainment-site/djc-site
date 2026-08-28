@@ -14,7 +14,15 @@ type ServiceImageUploaderProps = {
 };
 
 const maxFileSize = 3 * 1024 * 1024;
-const allowedTypes = ["image/jpeg", "image/png", "image/webp"];
+const allowedExtensions = ["jpg", "jpeg", "png", "webp", "gif", "avif"];
+const extensionContentTypes: Record<string, string> = {
+  avif: "image/avif",
+  gif: "image/gif",
+  jpeg: "image/jpeg",
+  jpg: "image/jpeg",
+  png: "image/png",
+  webp: "image/webp",
+};
 
 export function ServiceImageUploader({
   value,
@@ -30,8 +38,12 @@ export function ServiceImageUploader({
       return;
     }
 
-    if (!allowedTypes.includes(file.type)) {
-      setMessage("Use a JPG, PNG, or WebP image.");
+    const extension = file.name.split(".").pop()?.toLowerCase() ?? "";
+    const isImageMime = file.type.startsWith("image/");
+    const isAllowedExtension = allowedExtensions.includes(extension);
+
+    if (!isImageMime && !isAllowedExtension) {
+      setMessage("Use an image file such as JPG, PNG, WebP, GIF, or AVIF.");
       return;
     }
 
@@ -43,15 +55,15 @@ export function ServiceImageUploader({
     startTransition(async () => {
       setMessage(undefined);
       const supabase = createSupabaseBrowserClient();
-      const extension = file.name.split(".").pop()?.toLowerCase() ?? "jpg";
-      const path = `${serviceId ?? "new"}/${crypto.randomUUID()}.${extension}`;
+      const safeExtension = isAllowedExtension ? extension : "jpg";
+      const path = `${serviceId ?? "new"}/${crypto.randomUUID()}.${safeExtension}`;
       const oldPath = value || null;
       const { error } = await supabase.storage
         .from(serviceImagesBucket)
         .upload(path, file, {
           cacheControl: "31536000",
           upsert: false,
-          contentType: file.type,
+          contentType: file.type || extensionContentTypes[safeExtension] || "image/jpeg",
         });
 
       if (error) {
@@ -98,7 +110,7 @@ export function ServiceImageUploader({
             {isPending ? "Uploading..." : "Upload image"}
             <input
               type="file"
-              accept="image/jpeg,image/png,image/webp"
+              accept="image/*,.jpg,.jpeg,.png,.webp,.gif,.avif"
               className="sr-only"
               onChange={(event) => upload(event.target.files?.[0])}
             />
