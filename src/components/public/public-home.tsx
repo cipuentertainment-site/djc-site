@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import { ArrowRight, Check } from "lucide-react";
 
+import { PublicFooter } from "@/components/public/public-footer";
 import { ServiceImage } from "@/components/public/service-image";
 import { Button } from "@/components/ui/button";
 import { getServiceImageUrl } from "@/lib/supabase/storage";
@@ -21,8 +22,13 @@ export function PublicHome({ options, status, errorMessage }: PublicHomeProps) {
   const [selectedServiceIds, setSelectedServiceIds] = useState<string[]>([]);
   const settings = options.settings;
   const businessName = settings?.business_name ?? "DJC Entertainment";
-  const currentYear = new Date().getFullYear();
   const featuredServices = useMemo(() => options.services.slice(0, 4), [options.services]);
+  const compactServiceSummary = featuredServices.length
+    ? featuredServices.slice(0, 3).map((service) => service.name).join(" - ")
+    : "Entertainment services";
+  const serviceSummary = featuredServices.length
+    ? featuredServices.map((service) => service.name).join(" - ")
+    : "Entertainment services";
   const serviceImageUrls = useMemo(
     () =>
       featuredServices
@@ -67,10 +73,47 @@ export function PublicHome({ options, status, errorMessage }: PublicHomeProps) {
   }, [serviceImageUrls]);
 
   return (
-    <main className="min-h-screen bg-[#f7f4ee] text-neutral-950">
-      <div className="mx-auto flex min-h-screen w-full max-w-6xl flex-col px-4 pb-4 sm:px-6 lg:px-8">
-        <header className="-mx-4 overflow-hidden bg-neutral-950 text-white shadow-2xl shadow-black/15 sm:mx-0 sm:mt-4 sm:rounded-[2rem]">
-          <div className="relative min-h-[300px] px-4 py-4 sm:min-h-[330px] sm:px-6 lg:px-8">
+    <main className="min-h-screen bg-[#faf8f3] text-neutral-950">
+      <div className="mx-auto w-full max-w-6xl px-4 sm:px-6 lg:px-8">
+        <header className="flex h-16 items-center justify-between gap-3">
+          <Link href="/" className="flex min-w-0 items-center gap-2.5">
+            <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-white p-1.5 shadow-sm ring-1 ring-black/10">
+              <Image
+                src="/brand/logo-transparent.png"
+                alt={`${businessName} logo`}
+                width={128}
+                height={64}
+                priority
+                className="max-h-6 max-w-6 object-contain"
+              />
+            </span>
+            <span className="min-w-0">
+              <span className="block truncate text-sm font-black">{businessName}</span>
+              <span className="block max-w-[11rem] truncate text-[11px] font-semibold uppercase text-neutral-500 sm:max-w-none">
+                {compactServiceSummary}
+              </span>
+            </span>
+          </Link>
+
+          <nav className="flex items-center gap-2">
+            <a
+              href="#services"
+              className="hidden text-sm font-semibold text-neutral-600 hover:text-neutral-950 sm:inline"
+            >
+              Services
+            </a>
+            <Button
+              asChild
+              size="sm"
+              className="h-9 rounded-full bg-neutral-950 px-4 text-xs font-black text-white hover:bg-neutral-800"
+            >
+              <Link href={bookHref}>Book an Event</Link>
+            </Button>
+          </nav>
+        </header>
+
+        <section className="grid gap-5 pb-6 pt-2 lg:grid-cols-[0.9fr_1.1fr] lg:items-end lg:pb-8 lg:pt-5">
+          <div className="relative min-h-[360px] overflow-hidden rounded-[1.75rem] bg-neutral-950 text-white sm:min-h-[420px] lg:order-2">
             {heroImageUrl ? (
               // eslint-disable-next-line @next/next/no-img-element
               <img
@@ -80,171 +123,143 @@ export function PublicHome({ options, status, errorMessage }: PublicHomeProps) {
                 aria-hidden="true"
               />
             ) : (
-              <div className="absolute inset-0 bg-[radial-gradient(circle_at_18%_10%,rgba(251,191,36,0.42),transparent_28%),radial-gradient(circle_at_82%_18%,rgba(244,63,94,0.28),transparent_30%),linear-gradient(135deg,#111111,#2b2418_52%,#080808)]" />
+              <div className="absolute inset-0 bg-[linear-gradient(135deg,#111,#3b2c11_46%,#0b0b0b)]" />
             )}
-            <div className="absolute inset-0 bg-[linear-gradient(180deg,rgba(0,0,0,0.48),rgba(0,0,0,0.26)_34%,rgba(0,0,0,0.86))]" />
+            <div className="absolute inset-0 bg-[linear-gradient(180deg,rgba(0,0,0,0.1),rgba(0,0,0,0.42)_48%,rgba(0,0,0,0.92))]" />
+            <div className="absolute inset-x-0 bottom-0 p-5 sm:p-6">
+              <p className="max-w-sm text-sm font-semibold leading-6 text-white/78">
+                Premium entertainment support for weddings, parties, corporate
+                events, private celebrations and community moments.
+              </p>
+            </div>
+          </div>
 
-            <nav className="relative z-10 flex items-center justify-between gap-3">
-              <Link href="/" className="flex min-w-0 items-center gap-2 leading-tight">
-                <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-white/95 p-1.5 shadow-lg">
-                  <Image
-                    src="/brand/logo-transparent.png"
-                    alt={`${businessName} logo`}
-                    width={128}
-                    height={64}
-                    priority
-                    className="max-h-6 max-w-6 object-contain"
-                  />
-                </span>
-                <span className="min-w-0">
-                  <span className="block truncate text-sm font-black tracking-normal">
-                    {businessName}
-                  </span>
-                  <span className="text-xs font-medium text-white/65">DJ - MC - Sound</span>
-                </span>
-              </Link>
+          <div className="py-1 lg:pb-8">
+            <p className="text-xs font-black uppercase tracking-[0.18em] text-amber-700">
+              DJC Entertainment
+            </p>
+            <h1 className="mt-3 max-w-xl text-5xl font-black leading-[0.9] tracking-normal text-neutral-950 sm:text-6xl lg:text-7xl">
+              Let your event sound right.
+            </h1>
+            <p className="mt-4 max-w-md text-base leading-7 text-neutral-600">
+              {serviceSummary} for events with clean planning, strong presence
+              and a simple booking request flow.
+            </p>
+            <div className="mt-5 flex flex-wrap items-center gap-3">
               <Button
                 asChild
-                size="sm"
-                className="h-9 shrink-0 bg-amber-400 px-3 text-xs font-black text-black hover:bg-amber-300"
+                className="h-12 rounded-full bg-amber-400 px-5 text-sm font-black text-black hover:bg-amber-300"
               >
-                <Link href={bookHref}>Book a service</Link>
-              </Button>
-            </nav>
-
-            <div className="relative z-10 mt-12 max-w-xl space-y-4 sm:mt-16">
-              <div className="space-y-3">
-                <h1 className="text-4xl font-black leading-[0.96] tracking-normal sm:text-5xl">
-                  Booking event services made easier.
-                </h1>
-                <p className="max-w-lg text-sm leading-6 text-white/78 sm:text-base">
-                  Easy booking, fast planning, and quality DJ, MC, and sound
-                  support for your next event.
-                </p>
-              </div>
-              <Button asChild className="h-12 bg-amber-400 text-black hover:bg-amber-300">
                 <Link href={bookHref}>
-                  Book a service
+                  Book an Event
                   <ArrowRight className="h-4 w-4" />
                 </Link>
               </Button>
+              <a
+                href="#services"
+                className="text-sm font-bold text-neutral-600 underline-offset-4 hover:text-neutral-950 hover:underline"
+              >
+                Explore services
+              </a>
             </div>
           </div>
-        </header>
+        </section>
 
-        <section className="grid gap-4 py-5 lg:grid-cols-[minmax(220px,0.55fr)_minmax(0,1.45fr)] lg:items-start lg:gap-5 lg:py-6">
-          <div className="space-y-3">
-            <p className="text-xs font-bold uppercase tracking-[0.18em] text-amber-700">
-              Services
-            </p>
-            <h2 className="text-2xl font-black">What do you need?</h2>
-            <p className="max-w-sm text-sm leading-6 text-neutral-600">
-              Select one or more services then press &quot;Book a service&quot;. You will choose the event type and
-              date on the next screen.
-            </p>
+        <section id="services" className="border-t border-black/10 py-7 sm:py-9">
+          <div className="mb-4 flex items-end justify-between gap-4">
+            <div>
+              <p className="text-xs font-black uppercase tracking-[0.18em] text-amber-700">
+                Services
+              </p>
+              <h2 className="mt-1 text-2xl font-black sm:text-3xl">
+                What do you need?
+              </h2>
+            </div>
             {selectedServiceIds.length ? (
-              <span className="inline-flex rounded-full bg-neutral-950 px-3 py-1 text-xs font-semibold text-white">
+              <span className="rounded-full bg-neutral-950 px-3 py-1 text-xs font-bold text-white">
                 {selectedServiceIds.length} selected
               </span>
             ) : null}
           </div>
 
-          <div id="services" className="space-y-3">
-            {status === "ready" && featuredServices.length ? (
-              <div className="grid gap-3 sm:grid-cols-2">
-                {featuredServices.map((service) => {
-                  const selected = selectedServiceIds.includes(service.id);
+          {status === "ready" && featuredServices.length ? (
+            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+              {featuredServices.map((service) => {
+                const selected = selectedServiceIds.includes(service.id);
 
-                  return (
-                    <button
-                      key={service.id}
-                      type="button"
-                      onClick={() => toggleService(service)}
+                return (
+                  <button
+                    key={service.id}
+                    type="button"
+                    onClick={() => toggleService(service)}
+                    className={cn(
+                      "group relative h-44 overflow-hidden rounded-[1.35rem] bg-neutral-950 text-left transition duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-400 sm:h-48 lg:h-56",
+                      selected
+                        ? "shadow-[0_0_0_3px_rgba(251,191,36,0.95)]"
+                        : "hover:-translate-y-0.5 hover:shadow-xl hover:shadow-black/12",
+                    )}
+                    aria-pressed={selected}
+                  >
+                    <ServiceImage
+                      imagePath={service.image_path}
+                      name={service.name}
+                      className="absolute inset-0 h-full w-full rounded-none"
+                    />
+                    <span className="absolute inset-0 bg-gradient-to-t from-black/92 via-black/48 to-black/0" />
+                    <span
                       className={cn(
-                        "group relative h-28 overflow-hidden rounded-2xl border bg-neutral-950 text-left shadow-sm transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-400 sm:h-32",
+                        "absolute right-3 top-3 flex h-8 w-8 items-center justify-center rounded-full border backdrop-blur",
                         selected
-                          ? "border-amber-300 shadow-[0_0_0_3px_rgba(251,191,36,0.42)]"
-                          : "border-black/10 hover:border-amber-500/70 hover:shadow-md",
+                          ? "border-amber-300 bg-amber-300 text-black"
+                          : "border-white/35 bg-black/20 text-transparent",
                       )}
-                      aria-pressed={selected}
                     >
-                      <ServiceImage
-                        imagePath={service.image_path}
-                        name={service.name}
-                        className="absolute inset-0 h-full w-full rounded-none"
-                      />
-                      <span className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/32 to-black/5" />
-                      <span
-                        className={cn(
-                          "absolute right-2.5 top-2.5 flex h-7 w-7 items-center justify-center rounded-full border backdrop-blur",
-                          selected
-                            ? "border-amber-300 bg-amber-300 text-black"
-                            : "border-white/35 bg-black/20 text-transparent",
-                        )}
-                      >
-                        <Check className="h-4 w-4" aria-hidden="true" />
+                      <Check className="h-4 w-4" aria-hidden="true" />
+                    </span>
+                    <span className="absolute inset-x-0 bottom-0 p-4 text-white">
+                      <span className="block text-xl font-black leading-tight">
+                        {service.name}
                       </span>
-                      <span className="absolute inset-x-0 bottom-0 p-3 text-white">
-                        <span className="block text-base font-black">{service.name}</span>
-                        <span className="mt-0.5 line-clamp-1 block text-xs leading-5 text-white/72">
-                          {service.description ?? "Available for configured events."}
-                        </span>
+                      <span className="mt-1 line-clamp-2 block text-xs leading-5 text-white/72">
+                        {service.description ?? "Available for configured events."}
                       </span>
-                    </button>
-                  );
-                })}
-              </div>
-            ) : (
-              <div className="rounded-2xl border border-black/10 bg-white p-4 text-sm text-neutral-600">
-                {status === "not_configured"
-                  ? "Booking is not available yet. Please contact the business directly."
-                  : errorMessage ?? "Services will appear here once configured."}
-              </div>
-            )}
-
-            <div className="rounded-2xl border border-black/10 bg-neutral-950 p-3 text-white shadow-lg">
-              <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                <div>
-                  <p className="text-sm font-semibold">
-                    {selectedServiceIds.length
-                      ? `${selectedServiceIds.length} service${selectedServiceIds.length === 1 ? "" : "s"} ready`
-                      : "Ready to plan your event?"}
-                  </p>
-                  <p className="mt-1 text-xs text-white/65">Continue to pick event details.</p>
-                </div>
-                <Button asChild className="h-10 bg-amber-400 text-black hover:bg-amber-300">
-                  <Link href={bookHref}>
-                    Book a service
-                    <ArrowRight className="h-4 w-4" />
-                  </Link>
-                </Button>
-              </div>
+                    </span>
+                  </button>
+                );
+              })}
             </div>
+          ) : (
+            <div className="rounded-2xl bg-white p-4 text-sm text-neutral-600 ring-1 ring-black/10">
+              {status === "not_configured"
+                ? "Booking is not available yet. Please contact the business directly."
+                : errorMessage ?? "Services will appear here once configured."}
+            </div>
+          )}
+
+          <div className="mt-5 flex flex-col gap-3 border-t border-black/10 pt-5 sm:flex-row sm:items-center sm:justify-between">
+            <p className="max-w-lg text-sm leading-6 text-neutral-600">
+              Choose one or more services, then continue to select the event type,
+              size, date and location.
+            </p>
+            <Button
+              asChild
+              className="h-12 rounded-full bg-neutral-950 px-5 text-sm font-black text-white hover:bg-neutral-800"
+            >
+              <Link href={bookHref}>
+                Book an Event
+                <ArrowRight className="h-4 w-4" />
+              </Link>
+            </Button>
           </div>
         </section>
 
-        <footer className="border-t border-black/10 py-6 text-sm text-neutral-600">
-          <div className="grid gap-4 sm:grid-cols-[1fr_auto] sm:items-end">
-            <div>
-              <p className="font-black text-neutral-950">{businessName}</p>
-              <p className="mt-1 max-w-md text-xs leading-5 text-neutral-500">
-                Professional DJ, MC, and event sound services for weddings,
-                parties, corporate events, and celebrations.
-              </p>
-            </div>
-            <div className="space-y-1 text-left text-xs sm:text-right">
-              {settings?.business_phone ? <p>Phone: {settings.business_phone}</p> : null}
-              {settings?.business_whatsapp ? <p>WhatsApp: {settings.business_whatsapp}</p> : null}
-              {settings?.business_email ? <p>Email: {settings.business_email}</p> : null}
-              {settings?.business_location ? <p>Location: {settings.business_location}</p> : null}
-            </div>
-          </div>
-          <div className="mt-5 border-t border-black/10 pt-4 text-xs text-neutral-500">
-            <p>
-              &copy; {currentYear} {businessName}. All rights reserved.
-            </p>
-          </div>
-        </footer>
+        <PublicFooter
+          businessName={businessName}
+          phone={settings?.business_phone}
+          whatsapp={settings?.business_whatsapp}
+          email={settings?.business_email}
+          location={settings?.business_location}
+        />
       </div>
     </main>
   );

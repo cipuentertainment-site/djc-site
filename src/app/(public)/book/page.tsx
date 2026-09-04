@@ -24,10 +24,10 @@ export default async function BookPage({ searchParams }: BookPageProps) {
       .filter(Boolean) ?? [];
 
   return (
-    <main className="min-h-screen bg-[#f7f4ee] px-4 py-4 text-neutral-950 sm:px-6">
+    <main className="min-h-screen bg-[#faf8f3] px-4 py-4 text-neutral-950 sm:px-6">
       <div className="mx-auto w-full max-w-5xl">
-        <header className="mb-4 flex items-center justify-between gap-3">
-          <Link href="/" className="flex items-center gap-2 text-sm font-black">
+        <header className="mb-5 flex h-14 items-center justify-between gap-3">
+          <Link href="/" className="flex min-w-0 items-center gap-2.5 text-sm font-black">
             <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-white p-1.5 shadow-sm ring-1 ring-black/10">
               <Image
                 src="/brand/logo-transparent.png"
@@ -38,9 +38,13 @@ export default async function BookPage({ searchParams }: BookPageProps) {
                 className="max-h-6 max-w-6 object-contain"
               />
             </span>
-            <span>{businessName}</span>
+            <span className="truncate">{businessName}</span>
           </Link>
-          <Button asChild variant="outline" size="sm" className="border-neutral-300 bg-white/70 text-neutral-950 hover:bg-white">
+          <Button
+            asChild
+            size="sm"
+            className="h-9 rounded-full bg-neutral-950 px-4 text-xs font-black text-white hover:bg-neutral-800"
+          >
             <Link href="/">Home</Link>
           </Button>
         </header>
