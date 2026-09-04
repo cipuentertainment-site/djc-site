@@ -7,6 +7,7 @@ import type {
   AdminBookingListItem,
   AdminConfigData,
   AdminDataResult,
+  AdminMerchandiseMediaData,
   BookingListData,
   BookingStatus,
   CalendarData,
@@ -23,6 +24,11 @@ import type {
   PublicService,
   PublicServicePrice,
 } from "@/types/booking";
+import type {
+  MerchandiseProduct,
+  MerchandiseRequest,
+  PortfolioItem,
+} from "@/types/merchandise-media";
 
 const bookingListSelect = `
   id,
@@ -499,4 +505,49 @@ export async function getActiveDateBlocks(): Promise<AdminDataResult<DateBlock[]
   }
 
   return toReady((result.data as DateBlock[] | null) ?? []);
+}
+
+export async function getAdminMerchandiseMediaData(): Promise<
+  AdminDataResult<AdminMerchandiseMediaData>
+> {
+  const empty: AdminMerchandiseMediaData = {
+    portfolioItems: [],
+    merchandiseProducts: [],
+    merchandiseRequests: [],
+  };
+  const client = await getAdminClient(empty);
+
+  if (!client.ok) {
+    return client.result;
+  }
+
+  const [portfolio, merchandise, requests] = await Promise.all([
+    client.supabase
+      .from("portfolio_items")
+      .select("id,title,slug,description,thumbnail_path,external_url,is_active,sort_order,created_at,updated_at")
+      .order("sort_order")
+      .order("created_at", { ascending: false }),
+    client.supabase
+      .from("merchandise_products")
+      .select("id,name,slug,description,price_amount,currency,image_path,available_colours,is_active,sort_order,created_at,updated_at")
+      .order("sort_order")
+      .order("name"),
+    client.supabase
+      .from("merchandise_requests")
+      .select("id,product_id,product_name_snapshot,product_price_amount_snapshot,currency,selected_colour,quantity,customer_name,customer_phone,status,created_at,updated_at")
+      .order("created_at", { ascending: false })
+      .limit(100),
+  ]);
+
+  const error = portfolio.error ?? merchandise.error ?? requests.error;
+
+  if (error) {
+    return classifyError(error.message, empty);
+  }
+
+  return toReady({
+    portfolioItems: (portfolio.data as PortfolioItem[] | null) ?? [],
+    merchandiseProducts: (merchandise.data as MerchandiseProduct[] | null) ?? [],
+    merchandiseRequests: (requests.data as MerchandiseRequest[] | null) ?? [],
+  });
 }

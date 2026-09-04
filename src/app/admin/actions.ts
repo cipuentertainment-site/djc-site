@@ -9,10 +9,15 @@ import {
   bookingStatusFormSchema,
   dateBlockFormSchema,
   eventTypeFormSchema,
+  merchandiseProductFormSchema,
+  merchandiseRequestStatusFormSchema,
+  portfolioItemFormSchema,
   pricingFormSchema,
   serviceFormSchema,
   settingsFormSchema,
   type EventTypeFormInput,
+  type MerchandiseProductFormInput,
+  type PortfolioItemFormInput,
   type PricingFormInput,
   type ServiceFormInput,
   type SettingsFormInput,
@@ -504,6 +509,193 @@ export async function savePricingAction(
   revalidatePath("/book");
   revalidatePath("/admin/pricing");
   return { ok: true, message: "Pricing saved." };
+}
+
+export async function savePortfolioItemAction(
+  input: PortfolioItemFormInput,
+): Promise<AdminActionResult> {
+  const parsed = portfolioItemFormSchema.safeParse(input);
+
+  if (!parsed.success) {
+    return {
+      ok: false,
+      message: parsed.error.issues[0]?.message ?? "Invalid portfolio item.",
+    };
+  }
+
+  const client = await getActionClient();
+
+  if (!client.ok) {
+    return client.result;
+  }
+
+  const payload = {
+    title: parsed.data.title.trim(),
+    slug: slugify(parsed.data.title),
+    description: parsed.data.description?.trim() || null,
+    thumbnail_path: parsed.data.thumbnailPath || null,
+    external_url: parsed.data.externalUrl,
+    sort_order: parsed.data.sortOrder,
+    is_active: parsed.data.isActive,
+  };
+
+  const result = parsed.data.id
+    ? await client.supabase.from("portfolio_items").update(payload).eq("id", parsed.data.id)
+    : await client.supabase.from("portfolio_items").insert(payload);
+
+  if (result.error) {
+    return { ok: false, message: friendlyError(result.error.message) };
+  }
+
+  revalidatePath("/");
+  revalidatePath("/admin/merchandise-media");
+  return { ok: true, message: "Portfolio item saved." };
+}
+
+export async function deletePortfolioItemAction(
+  portfolioItemId: string,
+): Promise<AdminActionResult> {
+  const client = await getActionClient();
+
+  if (!client.ok) {
+    return client.result;
+  }
+
+  const result = await client.supabase
+    .from("portfolio_items")
+    .delete()
+    .eq("id", portfolioItemId);
+
+  if (result.error) {
+    return { ok: false, message: friendlyError(result.error.message) };
+  }
+
+  revalidatePath("/");
+  revalidatePath("/admin/merchandise-media");
+  return { ok: true, message: "Portfolio item deleted." };
+}
+
+export async function saveMerchandiseProductAction(
+  input: MerchandiseProductFormInput,
+): Promise<AdminActionResult> {
+  const parsed = merchandiseProductFormSchema.safeParse(input);
+
+  if (!parsed.success) {
+    return {
+      ok: false,
+      message: parsed.error.issues[0]?.message ?? "Invalid merchandise product.",
+    };
+  }
+
+  const client = await getActionClient();
+
+  if (!client.ok) {
+    return client.result;
+  }
+
+  const colours = Array.from(
+    new Set(parsed.data.availableColours.map((colour) => colour.trim()).filter(Boolean)),
+  );
+  const payload = {
+    name: parsed.data.name.trim(),
+    slug: slugify(parsed.data.name),
+    description: parsed.data.description?.trim() || null,
+    price_amount: parsed.data.priceAmount,
+    currency: parsed.data.currency.trim(),
+    image_path: parsed.data.imagePath || null,
+    available_colours: colours,
+    sort_order: parsed.data.sortOrder,
+    is_active: parsed.data.isActive,
+  };
+
+  const result = parsed.data.id
+    ? await client.supabase
+        .from("merchandise_products")
+        .update(payload)
+        .eq("id", parsed.data.id)
+    : await client.supabase.from("merchandise_products").insert(payload);
+
+  if (result.error) {
+    return { ok: false, message: friendlyError(result.error.message) };
+  }
+
+  revalidatePath("/");
+  revalidatePath("/admin/merchandise-media");
+  revalidatePath(`/merchandise/${payload.slug}`);
+  return { ok: true, message: "Merchandise product saved." };
+}
+
+export async function deleteMerchandiseProductAction(
+  productId: string,
+): Promise<AdminActionResult> {
+  const client = await getActionClient();
+
+  if (!client.ok) {
+    return client.result;
+  }
+
+  const requests = await client.supabase
+    .from("merchandise_requests")
+    .select("id", { count: "exact", head: true })
+    .eq("product_id", productId);
+
+  if (requests.error) {
+    return { ok: false, message: friendlyError(requests.error.message) };
+  }
+
+  const result =
+    (requests.count ?? 0) > 0
+      ? await client.supabase
+          .from("merchandise_products")
+          .update({ is_active: false })
+          .eq("id", productId)
+      : await client.supabase.from("merchandise_products").delete().eq("id", productId);
+
+  if (result.error) {
+    return { ok: false, message: friendlyError(result.error.message) };
+  }
+
+  revalidatePath("/");
+  revalidatePath("/admin/merchandise-media");
+  return {
+    ok: true,
+    message:
+      (requests.count ?? 0) > 0
+        ? "Product has requests, so it was disabled instead of deleted."
+        : "Merchandise product deleted.",
+  };
+}
+
+export async function updateMerchandiseRequestStatusAction(
+  requestId: string,
+  nextStatus: string,
+): Promise<AdminActionResult> {
+  const parsed = merchandiseRequestStatusFormSchema.safeParse({
+    requestId,
+    nextStatus,
+  });
+
+  if (!parsed.success) {
+    return { ok: false, message: "Invalid merchandise request status." };
+  }
+
+  const client = await getActionClient();
+
+  if (!client.ok) {
+    return client.result;
+  }
+
+  const result = await client.supabase
+    .from("merchandise_requests")
+    .update({ status: parsed.data.nextStatus })
+    .eq("id", parsed.data.requestId);
+
+  if (result.error) {
+    return { ok: false, message: friendlyError(result.error.message) };
+  }
+
+  revalidatePath("/admin/merchandise-media");
+  return { ok: true, message: "Merchandise request updated." };
 }
 
 export async function changeBookingStatusAction(

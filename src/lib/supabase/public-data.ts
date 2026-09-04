@@ -10,6 +10,7 @@ import type {
   PublicService,
   PublicServicePrice,
 } from "@/types/booking";
+import type { MerchandiseProduct, PortfolioItem } from "@/types/merchandise-media";
 
 type PublicDataResult =
   | { status: "ready"; data: BookingOptions }
@@ -114,4 +115,62 @@ export async function getDateAvailability(
   }
 
   return data[0] as DateAvailability;
+}
+
+export type PublicMediaContent = {
+  portfolioItems: PortfolioItem[];
+  merchandiseProducts: MerchandiseProduct[];
+};
+
+export async function getPublicMediaContent(): Promise<PublicMediaContent> {
+  const supabase = await createSupabaseServerClient();
+
+  if (!supabase) {
+    return { portfolioItems: [], merchandiseProducts: [] };
+  }
+
+  const [portfolio, merchandise] = await Promise.all([
+    supabase
+      .from("portfolio_items")
+      .select("id,title,slug,description,thumbnail_path,external_url,is_active,sort_order")
+      .eq("is_active", true)
+      .order("sort_order")
+      .order("created_at", { ascending: false })
+      .limit(4),
+    supabase
+      .from("merchandise_products")
+      .select("id,name,slug,description,price_amount,currency,image_path,available_colours,is_active,sort_order")
+      .eq("is_active", true)
+      .order("sort_order")
+      .order("name")
+      .limit(8),
+  ]);
+
+  return {
+    portfolioItems: (portfolio.data as PortfolioItem[] | null) ?? [],
+    merchandiseProducts: (merchandise.data as MerchandiseProduct[] | null) ?? [],
+  };
+}
+
+export async function getPublicMerchandiseProduct(
+  slug: string,
+): Promise<MerchandiseProduct | null> {
+  const supabase = await createSupabaseServerClient();
+
+  if (!supabase) {
+    return null;
+  }
+
+  const result = await supabase
+    .from("merchandise_products")
+    .select("id,name,slug,description,price_amount,currency,image_path,available_colours,is_active,sort_order")
+    .eq("slug", slug)
+    .eq("is_active", true)
+    .maybeSingle();
+
+  if (result.error) {
+    return null;
+  }
+
+  return (result.data as MerchandiseProduct | null) ?? null;
 }

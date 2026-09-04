@@ -5,12 +5,16 @@ import { Upload, X } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
-import { getServiceImageUrl, serviceImagesBucket } from "@/lib/supabase/storage";
+import {
+  getStorageImageUrl,
+  serviceImagesBucket,
+} from "@/lib/supabase/storage";
 
 type ServiceImageUploaderProps = {
   value: string;
   onChange: (path: string) => void;
   serviceId?: string;
+  bucket?: string;
 };
 
 const maxSourceFileSize = 12 * 1024 * 1024;
@@ -110,10 +114,11 @@ export function ServiceImageUploader({
   value,
   onChange,
   serviceId,
+  bucket = serviceImagesBucket,
 }: ServiceImageUploaderProps) {
   const [message, setMessage] = useState<string>();
   const [isPending, startTransition] = useTransition();
-  const imageUrl = getServiceImageUrl(value);
+  const imageUrl = getStorageImageUrl(value, bucket);
 
   function upload(file: File | undefined) {
     if (!file) {
@@ -148,7 +153,7 @@ export function ServiceImageUploader({
       const path = `${serviceId ?? "new"}/${crypto.randomUUID()}.${optimized.extension}`;
       const oldPath = value || null;
       const { error } = await supabase.storage
-        .from(serviceImagesBucket)
+        .from(bucket)
         .upload(path, optimized.file, {
           cacheControl: "31536000",
           upsert: false,
@@ -168,7 +173,7 @@ export function ServiceImageUploader({
       );
 
       if (oldPath) {
-        await supabase.storage.from(serviceImagesBucket).remove([oldPath]);
+        await supabase.storage.from(bucket).remove([oldPath]);
       }
     });
   }
@@ -180,7 +185,7 @@ export function ServiceImageUploader({
 
       if (oldPath) {
         const supabase = createSupabaseBrowserClient();
-        await supabase.storage.from(serviceImagesBucket).remove([oldPath]);
+        await supabase.storage.from(bucket).remove([oldPath]);
       }
     });
   }

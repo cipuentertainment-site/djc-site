@@ -90,6 +90,33 @@ export const dateBlockFormSchema = z.object({
   reason: z.string().trim().optional(),
 });
 
+export const portfolioItemFormSchema = z.object({
+  id: z.string().uuid().optional(),
+  title: z.string().trim().min(2, "Enter a portfolio title."),
+  description: z.string().trim().optional(),
+  thumbnailPath: z.string().trim().optional().nullable(),
+  externalUrl: z.string().trim().url("Enter a valid external URL."),
+  sortOrder: z.coerce.number().int().min(0),
+  isActive: z.boolean(),
+});
+
+export const merchandiseProductFormSchema = z.object({
+  id: z.string().uuid().optional(),
+  name: z.string().trim().min(2, "Enter a product name."),
+  description: z.string().trim().optional(),
+  priceAmount: z.coerce.number().int().min(0, "Price cannot be negative."),
+  currency: z.string().trim().min(3).max(12),
+  imagePath: z.string().trim().optional().nullable(),
+  availableColours: z.array(z.string().trim().min(1).max(40)).default([]),
+  sortOrder: z.coerce.number().int().min(0),
+  isActive: z.boolean(),
+});
+
+export const merchandiseRequestStatusFormSchema = z.object({
+  requestId: z.string().uuid(),
+  nextStatus: z.enum(["new", "read", "contacted", "completed"]),
+});
+
 export const bookingFiltersSchema = z.object({
   page: z.coerce.number().int().min(1).default(1),
   status: z
@@ -107,3 +134,5 @@ export type EventTypeFormInput = z.infer<typeof eventTypeFormSchema>;
 export type ServiceFormInput = z.infer<typeof serviceFormSchema>;
 export type PricingFormInput = z.infer<typeof pricingFormSchema>;
 export type SettingsFormInput = z.infer<typeof settingsFormSchema>;
+export type PortfolioItemFormInput = z.infer<typeof portfolioItemFormSchema>;
+export type MerchandiseProductFormInput = z.infer<typeof merchandiseProductFormSchema>;

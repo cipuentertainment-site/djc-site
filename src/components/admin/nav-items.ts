@@ -1,6 +1,7 @@
 import {
   CalendarDays,
   Gauge,
+  Images,
   ListChecks,
   Music2,
   Settings,
@@ -17,5 +18,6 @@ export const adminNavItems: AdminNavItem[] = [
   { title: "Event Types", href: "/admin/event-types", icon: Tags },
   { title: "Services", href: "/admin/services", icon: Music2 },
   { title: "Pricing", href: "/admin/pricing", icon: SlidersHorizontal },
+  { title: "Merchandise & Media", href: "/admin/merchandise-media", icon: Images },
   { title: "Settings", href: "/admin/settings", icon: Settings },
 ];

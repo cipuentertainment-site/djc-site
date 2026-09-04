@@ -9,6 +9,11 @@ import type {
   PublicService,
   PublicServicePrice,
 } from "@/types/booking";
+import type {
+  MerchandiseProduct,
+  MerchandiseRequest,
+  PortfolioItem,
+} from "@/types/merchandise-media";
 
 export type BookingStatus =
   | "pending"
@@ -103,4 +108,10 @@ export type DateBlock = {
   event_date: string;
   reason: string | null;
   is_active: boolean;
+};
+
+export type AdminMerchandiseMediaData = {
+  portfolioItems: PortfolioItem[];
+  merchandiseProducts: MerchandiseProduct[];
+  merchandiseRequests: MerchandiseRequest[];
 };
