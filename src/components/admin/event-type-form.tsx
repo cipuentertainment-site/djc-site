@@ -19,12 +19,26 @@ import type {
 
 const labels = ["small", "medium", "large"] as const;
 
+type AttendeeRangeDraft = {
+  label: (typeof labels)[number];
+  minAttendees: string;
+  maxAttendees: string;
+};
+
 type EventTypeFormProps = {
   eventType?: PublicEventType;
   sizes?: PublicEventTypeSize[];
   relationships?: PublicEventTypeService[];
   services: PublicService[];
 };
+
+function parseAttendeeValue(value: string) {
+  if (value.trim() === "") {
+    return Number.NaN;
+  }
+
+  return Number(value);
+}
 
 export function EventTypeForm({
   eventType,
@@ -43,13 +57,13 @@ export function EventTypeForm({
       .filter((item) => item.is_active !== false)
       .map((item) => item.service_id),
   );
-  const [ranges, setRanges] = useState(
+  const [ranges, setRanges] = useState<AttendeeRangeDraft[]>(
     labels.map((label) => {
       const existing = sizes.find((size) => size.label === label);
       return {
         label,
-        minAttendees: existing?.min_attendees ?? 0,
-        maxAttendees: existing?.max_attendees ?? 1,
+        minAttendees: String(existing?.min_attendees ?? 0),
+        maxAttendees: String(existing?.max_attendees ?? 1),
       };
     }),
   );
@@ -58,10 +72,29 @@ export function EventTypeForm({
 
   const isRangeInvalid = useMemo(
     () =>
-      ranges.some((range) => range.maxAttendees <= range.minAttendees) ||
+      ranges.some((range) => {
+        const minAttendees = parseAttendeeValue(range.minAttendees);
+        const maxAttendees = parseAttendeeValue(range.maxAttendees);
+
+        return (
+          !Number.isInteger(minAttendees) ||
+          !Number.isInteger(maxAttendees) ||
+          minAttendees < 0 ||
+          maxAttendees < 1 ||
+          maxAttendees <= minAttendees
+        );
+      }) ||
       ranges.some((range, index) => {
         const previous = ranges[index - 1];
-        return previous ? range.minAttendees <= previous.maxAttendees : false;
+
+        if (!previous) {
+          return false;
+        }
+
+        return (
+          parseAttendeeValue(range.minAttendees) <=
+          parseAttendeeValue(previous.maxAttendees)
+        );
       }),
     [ranges],
   );
@@ -93,7 +126,11 @@ export function EventTypeForm({
         supportsHalfDay,
         isActive,
         serviceIds: selectedServices,
-        sizes: ranges,
+        sizes: ranges.map((range) => ({
+          label: range.label,
+          minAttendees: Number(range.minAttendees),
+          maxAttendees: Number(range.maxAttendees),
+        })),
       });
       setResult(actionResult);
     });
@@ -172,7 +209,7 @@ export function EventTypeForm({
                         const next = [...ranges];
                         next[index] = {
                           ...range,
-                          minAttendees: Number(event.target.value),
+                          minAttendees: event.target.value,
                         };
                         setRanges(next);
                       }}
@@ -188,7 +225,7 @@ export function EventTypeForm({
                         const next = [...ranges];
                         next[index] = {
                           ...range,
-                          maxAttendees: Number(event.target.value),
+                          maxAttendees: event.target.value,
                         };
                         setRanges(next);
                       }}
