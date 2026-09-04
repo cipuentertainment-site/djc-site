@@ -69,6 +69,14 @@ function friendlyError(message?: string) {
     return "A record with these details already exists.";
   }
 
+  if (
+    text.includes("event_type_sizes_no_active_overlap") ||
+    text.includes("event size ranges must be ordered") ||
+    text.includes("event size ranges are invalid")
+  ) {
+    return "Attendee ranges must be ordered and cannot overlap.";
+  }
+
   if (text.includes("confirmed booking capacity reached")) {
     return "This date has reached its maximum booking capacity.";
   }
@@ -156,9 +164,10 @@ export async function saveEventTypeAction(
     sort_order: (index + 1) * 10,
   }));
 
-  const sizeResult = await supabase
-    .from("event_type_sizes")
-    .upsert(sizes, { onConflict: "event_type_id,label" });
+  const sizeResult = await supabase.rpc("replace_event_type_sizes", {
+    p_event_type_id: eventTypeId,
+    p_sizes: sizes,
+  });
 
   if (sizeResult.error) {
     return { ok: false, message: friendlyError(sizeResult.error.message) };
