@@ -110,11 +110,6 @@ function PortfolioTile({ item }: { item: PortfolioItem }) {
       <span className="absolute inset-0 bg-gradient-to-t from-black/94 via-black/42 to-black/0" />
       <span className="absolute inset-x-0 bottom-0 p-4">
         <span className="block text-lg font-black leading-tight">{item.title}</span>
-        {item.description ? (
-          <span className="mt-1 line-clamp-2 block text-xs leading-5 text-white/72">
-            {item.description}
-          </span>
-        ) : null}
       </span>
     </a>
   );

@@ -120,7 +120,6 @@ function PortfolioItemForm({
   nextSortOrder?: number;
 }) {
   const [title, setTitle] = useState(item?.title ?? "");
-  const [description, setDescription] = useState(item?.description ?? "");
   const [thumbnailPath, setThumbnailPath] = useState(item?.thumbnail_path ?? "");
   const [externalUrl, setExternalUrl] = useState(item?.external_url ?? "");
   const [sortOrder, setSortOrder] = useState(String(item?.sort_order ?? nextSortOrder));
@@ -133,7 +132,7 @@ function PortfolioItemForm({
       const actionResult = await savePortfolioItemAction({
           id: item?.id,
           title,
-          description,
+          description: item?.description ?? "",
           thumbnailPath,
           externalUrl,
           sortOrder: Number(sortOrder),
@@ -144,7 +143,6 @@ function PortfolioItemForm({
 
       if (actionResult.ok && !item) {
         setTitle("");
-        setDescription("");
         setThumbnailPath("");
         setExternalUrl("");
         setSortOrder(String(nextSortOrder));
@@ -169,7 +167,7 @@ function PortfolioItemForm({
         <div className="flex items-start justify-between gap-3">
           <div>
             <CardTitle>{item ? "Edit portfolio item" : "Create portfolio item"}</CardTitle>
-            <CardDescription>Thumbnail plus external Instagram or media URL.</CardDescription>
+            <CardDescription>Carousel image plus the link opened by the play button.</CardDescription>
           </div>
           {item ? <StatusBadge status={isActive ? "active" : "inactive"} /> : null}
         </div>
@@ -192,13 +190,6 @@ function PortfolioItemForm({
             />
             Active
           </label>
-        </div>
-        <div className="space-y-2">
-          <Label>Description</Label>
-          <Textarea
-            value={description}
-            onChange={(event) => setDescription(event.target.value)}
-          />
         </div>
         <div className="space-y-2">
           <Label>Thumbnail</Label>
