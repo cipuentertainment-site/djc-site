@@ -153,7 +153,7 @@ export async function getAdminConfigData(): Promise<AdminDataResult<AdminConfigD
       supabase
         .from("global_settings")
         .select(
-          "business_name,business_phone,business_whatsapp,business_email,business_logo_url,business_location,business_description,currency,reservation_fee_amount,maximum_events_per_day,transport_disclaimer",
+          "business_name,business_phone,business_whatsapp,business_email,business_logo_url,business_location,business_description,currency,reservation_fee_amount,maximum_events_per_day,transport_disclaimer,homepage_service_ids",
         )
         .eq("id", "default")
         .maybeSingle(),

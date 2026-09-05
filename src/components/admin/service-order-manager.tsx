@@ -1,54 +1,65 @@
 "use client";
 
 import { useMemo, useState, useTransition } from "react";
-import { ArrowDown, ArrowUp, GripVertical, Save } from "lucide-react";
+import { Save, X } from "lucide-react";
 
 import {
-  reorderServicesAction,
+  saveHomepageServicesAction,
   type AdminActionResult,
 } from "@/app/admin/actions";
 import { ResultMessage } from "@/components/admin/result-message";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { cn } from "@/lib/utils";
-import type { PublicService } from "@/types/booking";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import { Label } from "@/components/ui/label";
+import type { PublicBookingSettings, PublicService } from "@/types/booking";
 
 type ServiceOrderManagerProps = {
   services: PublicService[];
+  settings: PublicBookingSettings | null;
 };
 
-export function ServiceOrderManager({ services }: ServiceOrderManagerProps) {
-  const initialIds = useMemo(() => services.map((service) => service.id), [services]);
-  const [orderedIds, setOrderedIds] = useState(initialIds);
+const homepageSlotCount = 4;
+
+export function ServiceOrderManager({ services, settings }: ServiceOrderManagerProps) {
+  const activeServices = useMemo(
+    () => services.filter((service) => service.is_active !== false),
+    [services],
+  );
+  const fallbackIds = useMemo(
+    () => activeServices.slice(0, homepageSlotCount).map((service) => service.id),
+    [activeServices],
+  );
+  const savedIds = settings?.homepage_service_ids?.filter(Boolean) ?? [];
+  const initialIds = savedIds.length ? savedIds.slice(0, homepageSlotCount) : fallbackIds;
+  const [slotIds, setSlotIds] = useState<string[]>([
+    ...initialIds,
+    ...Array.from({ length: homepageSlotCount - initialIds.length }, () => ""),
+  ]);
   const [result, setResult] = useState<AdminActionResult>();
   const [isPending, startTransition] = useTransition();
-  const servicesById = new Map(services.map((service) => [service.id, service]));
-  const homepageIds = new Set(
-    orderedIds
-      .filter((id) => servicesById.get(id)?.is_active !== false)
-      .slice(0, 4),
-  );
-  const hasChanges = orderedIds.join(",") !== initialIds.join(",");
+  const serviceNames = new Map(services.map((service) => [service.id, service.name]));
+  const compactSlotIds = slotIds.filter(Boolean);
+  const hasDuplicates = new Set(compactSlotIds).size !== compactSlotIds.length;
+  const hasChanges = compactSlotIds.join(",") !== initialIds.filter(Boolean).join(",");
 
-  function move(id: string, direction: -1 | 1) {
+  function updateSlot(index: number, value: string) {
     setResult(undefined);
-    setOrderedIds((current) => {
-      const index = current.indexOf(id);
-      const nextIndex = index + direction;
-
-      if (index < 0 || nextIndex < 0 || nextIndex >= current.length) {
-        return current;
-      }
-
+    setSlotIds((current) => {
       const next = [...current];
-      [next[index], next[nextIndex]] = [next[nextIndex], next[index]];
+      next[index] = value;
       return next;
     });
   }
 
-  function saveOrder() {
+  function save() {
     startTransition(async () => {
-      const actionResult = await reorderServicesAction(orderedIds);
+      const actionResult = await saveHomepageServicesAction(compactSlotIds);
       setResult(actionResult);
     });
   }
@@ -60,67 +71,72 @@ export function ServiceOrderManager({ services }: ServiceOrderManagerProps) {
   return (
     <Card>
       <CardHeader>
-        <CardTitle>Homepage service order</CardTitle>
+        <CardTitle>Homepage featured services</CardTitle>
         <CardDescription>
-          Arrange services by importance. The first four active services appear on the homepage.
+          Choose up to four active services for the landing page. New services will not
+          appear here unless you select them.
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
-        <div className="space-y-2">
-          {orderedIds.map((id, index) => {
-            const service = servicesById.get(id);
-
-            if (!service) {
-              return null;
-            }
+        <div className="grid gap-3 md:grid-cols-2">
+          {Array.from({ length: homepageSlotCount }, (_, index) => {
+            const selectedId = slotIds[index] ?? "";
 
             return (
-              <div
-                key={id}
-                className={cn(
-                  "grid grid-cols-[auto_1fr_auto] items-center gap-3 rounded-lg border bg-card p-3",
-                  service.is_active === false && "opacity-60",
-                )}
-              >
-                <GripVertical className="h-4 w-4 text-muted-foreground" aria-hidden="true" />
-                <div className="min-w-0">
-                  <p className="truncate text-sm font-semibold">{service.name}</p>
-                  <p className="text-xs text-muted-foreground">
-                    Position {index + 1}
-                    {homepageIds.has(id) ? " - homepage" : " - hidden from homepage"}
-                    {service.is_active === false ? " - inactive" : ""}
+              <div key={index} className="space-y-2 rounded-lg border bg-card p-3">
+                <Label htmlFor={`homepage-service-${index}`}>
+                  Homepage slot {index + 1}
+                </Label>
+                <div className="grid grid-cols-[1fr_auto] gap-2">
+                  <select
+                    id={`homepage-service-${index}`}
+                    value={selectedId}
+                    onChange={(event) => updateSlot(index, event.target.value)}
+                    className="h-10 rounded-md border border-input bg-background px-3 text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                    disabled={isPending}
+                  >
+                    <option value="">No service</option>
+                    {activeServices.map((service) => (
+                      <option
+                        key={service.id}
+                        value={service.id}
+                        disabled={slotIds.includes(service.id) && selectedId !== service.id}
+                      >
+                        {service.name}
+                      </option>
+                    ))}
+                  </select>
+                  <Button
+                    type="button"
+                    size="icon"
+                    variant="outline"
+                    onClick={() => updateSlot(index, "")}
+                    disabled={isPending || !selectedId}
+                    aria-label={`Clear homepage slot ${index + 1}`}
+                  >
+                    <X className="h-4 w-4" />
+                  </Button>
+                </div>
+                {selectedId && !serviceNames.has(selectedId) ? (
+                  <p className="text-xs text-destructive">
+                    This saved service no longer exists. Choose another service.
                   </p>
-                </div>
-                <div className="flex gap-1">
-                  <Button
-                    type="button"
-                    size="icon"
-                    variant="outline"
-                    onClick={() => move(id, -1)}
-                    disabled={index === 0 || isPending}
-                    aria-label={`Move ${service.name} up`}
-                  >
-                    <ArrowUp className="h-4 w-4" />
-                  </Button>
-                  <Button
-                    type="button"
-                    size="icon"
-                    variant="outline"
-                    onClick={() => move(id, 1)}
-                    disabled={index === orderedIds.length - 1 || isPending}
-                    aria-label={`Move ${service.name} down`}
-                  >
-                    <ArrowDown className="h-4 w-4" />
-                  </Button>
-                </div>
+                ) : null}
               </div>
             );
           })}
         </div>
+
+        {hasDuplicates ? (
+          <p className="text-sm text-destructive">
+            Each homepage slot must use a different service.
+          </p>
+        ) : null}
+
         <ResultMessage result={result} />
-        <Button onClick={saveOrder} disabled={isPending || !hasChanges}>
+        <Button onClick={save} disabled={isPending || hasDuplicates || !hasChanges}>
           <Save className="h-4 w-4" />
-          {isPending ? "Saving order..." : "Save order"}
+          {isPending ? "Saving..." : "Save homepage services"}
         </Button>
       </CardContent>
     </Card>

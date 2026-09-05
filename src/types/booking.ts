@@ -62,6 +62,7 @@ export type PublicBookingSettings = {
   reservation_fee_amount: number;
   maximum_events_per_day: number;
   transport_disclaimer: string;
+  homepage_service_ids?: string[] | null;
 };
 
 export type DateAvailability = {

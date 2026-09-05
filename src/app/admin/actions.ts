@@ -330,22 +330,23 @@ export async function saveServiceAction(
   revalidatePath("/");
   revalidatePath("/book");
   revalidatePath("/admin/services");
+  revalidatePath("/admin/settings");
   revalidatePath("/admin/pricing");
 
   return { ok: true, message: "Service saved." };
 }
 
-export async function reorderServicesAction(
+export async function saveHomepageServicesAction(
   serviceIds: string[],
 ): Promise<AdminActionResult> {
   const ids = serviceIds.filter(Boolean);
 
-  if (!ids.length || ids.some((id) => !/^[0-9a-f-]{36}$/i.test(id))) {
-    return { ok: false, message: "Invalid service order." };
+  if (ids.length > 4 || ids.some((id) => !/^[0-9a-f-]{36}$/i.test(id))) {
+    return { ok: false, message: "Choose up to four valid homepage services." };
   }
 
   if (new Set(ids).size !== ids.length) {
-    return { ok: false, message: "Service order contains duplicates." };
+    return { ok: false, message: "Each homepage service must be different." };
   }
 
   const client = await getActionClient();
@@ -354,25 +355,37 @@ export async function reorderServicesAction(
     return client.result;
   }
 
-  const results = await Promise.all(
-    ids.map((id, index) =>
-      client.supabase
+  const existing = ids.length
+    ? await client.supabase
         .from("services")
-        .update({ sort_order: (index + 1) * 10 })
-        .eq("id", id),
-    ),
-  );
-  const error = results.find((result) => result.error)?.error;
+        .select("id")
+        .in("id", ids)
+        .eq("is_active", true)
+    : { data: [], error: null };
 
-  if (error) {
-    return { ok: false, message: friendlyError(error.message) };
+  const existingIds = new Set(existing.data?.map((service) => service.id) ?? []);
+  const missingIds = ids.filter((id) => !existingIds.has(id));
+
+  if (existing.error) {
+    return { ok: false, message: friendlyError(existing.error.message) };
+  }
+
+  if (missingIds.length) {
+    return { ok: false, message: "Only active services can be featured on the homepage." };
+  }
+
+  const result = await client.supabase
+    .from("global_settings")
+    .upsert({ id: "default", homepage_service_ids: ids });
+
+  if (result.error) {
+    return { ok: false, message: friendlyError(result.error.message) };
   }
 
   revalidatePath("/");
-  revalidatePath("/book");
-  revalidatePath("/admin/services");
+  revalidatePath("/admin/settings");
 
-  return { ok: true, message: "Homepage service order saved." };
+  return { ok: true, message: "Homepage services saved." };
 }
 
 export async function setServiceActiveAction(

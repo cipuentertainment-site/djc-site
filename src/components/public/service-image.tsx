@@ -1,3 +1,6 @@
+"use client";
+
+import { useState } from "react";
 import { ImageIcon } from "lucide-react";
 
 import { getServiceImageUrl } from "@/lib/supabase/storage";
@@ -11,12 +14,20 @@ type ServiceImageProps = {
 
 export function ServiceImage({ imagePath, name, className }: ServiceImageProps) {
   const url = getServiceImageUrl(imagePath);
+  const [failedUrl, setFailedUrl] = useState<string | null>(null);
+  const failed = Boolean(url && failedUrl === url);
 
   return (
     <div className={cn("relative overflow-hidden bg-neutral-100", className)}>
-      {url ? (
+      {url && !failed ? (
         // eslint-disable-next-line @next/next/no-img-element
-        <img src={url} alt={name} className="h-full w-full object-cover" loading="lazy" />
+        <img
+          src={url}
+          alt={name}
+          className="h-full w-full object-cover"
+          loading="lazy"
+          onError={() => setFailedUrl(url)}
+        />
       ) : (
         <div className="flex h-full w-full items-center justify-center bg-[radial-gradient(circle_at_top_left,rgba(245,158,11,0.22),transparent_38%),linear-gradient(135deg,#f7f7f4,#e8e5dc)] text-neutral-500">
           <ImageIcon className="h-7 w-7" aria-hidden="true" />

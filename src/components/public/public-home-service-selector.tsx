@@ -25,7 +25,20 @@ export function PublicHomeServiceSelector({
   const [selectedServiceIds, setSelectedServiceIds] = useState<string[]>([]);
   const settings = options.settings;
   const businessName = settings?.business_name ?? "DJC Entertainment";
-  const featuredServices = useMemo(() => options.services.slice(0, 4), [options.services]);
+  const featuredServices = useMemo(() => {
+    const savedIds = settings?.homepage_service_ids?.filter(Boolean) ?? [];
+
+    if (!savedIds.length) {
+      return options.services.slice(0, 4);
+    }
+
+    const servicesById = new Map(options.services.map((service) => [service.id, service]));
+
+    return savedIds
+      .map((id) => servicesById.get(id))
+      .filter((service): service is PublicService => Boolean(service))
+      .slice(0, 4);
+  }, [options.services, settings?.homepage_service_ids]);
   const compactServiceSummary = featuredServices.length
     ? featuredServices.slice(0, 3).map((service) => service.name).join(" - ")
     : "Entertainment services";
@@ -39,6 +52,8 @@ export function PublicHomeServiceSelector({
         .find((url): url is string => Boolean(url)) ?? null,
     [featuredServices],
   );
+  const [failedHeroImageUrl, setFailedHeroImageUrl] = useState<string | null>(null);
+  const heroImageFailed = Boolean(heroImageUrl && failedHeroImageUrl === heroImageUrl);
   const bookHref = useMemo(() => {
     const params = new URLSearchParams();
 
@@ -98,13 +113,14 @@ export function PublicHomeServiceSelector({
 
       <section className="grid gap-5 pb-6 pt-2 lg:grid-cols-[0.9fr_1.1fr] lg:items-end lg:pb-8 lg:pt-5">
         <div className="relative min-h-[360px] overflow-hidden rounded-[1.75rem] bg-neutral-950 text-white sm:min-h-[420px] lg:order-2">
-          {heroImageUrl ? (
+          {heroImageUrl && !heroImageFailed ? (
             // eslint-disable-next-line @next/next/no-img-element
             <img
               src={heroImageUrl}
               alt=""
               className="absolute inset-0 h-full w-full object-cover"
               aria-hidden="true"
+              onError={() => setFailedHeroImageUrl(heroImageUrl)}
             />
           ) : (
             <div className="absolute inset-0 bg-[linear-gradient(135deg,#111,#3b2c11_46%,#0b0b0b)]" />

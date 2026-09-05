@@ -24,7 +24,7 @@ export default async function SettingsPage() {
         />
       ) : null}
       <SettingsForm settings={config.data.settings} />
-      <ServiceOrderManager services={config.data.services} />
+      <ServiceOrderManager services={config.data.services} settings={config.data.settings} />
     </div>
   );
 }

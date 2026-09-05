@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useMemo, useState, useTransition } from "react";
 import { Upload, X } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
@@ -21,10 +21,13 @@ const maxSourceFileSize = 12 * 1024 * 1024;
 const maxUploadFileSize = 3 * 1024 * 1024;
 const maxImageDimension = 1600;
 const imageQuality = 0.82;
-const allowedExtensions = ["jpg", "jpeg", "png", "webp", "gif", "avif"];
+const allowedExtensions = ["jpg", "jpeg", "png", "webp", "gif", "avif", "heic", "heif"];
+const uploadableContentTypes = ["image/jpeg", "image/png", "image/webp"];
 const extensionContentTypes: Record<string, string> = {
   avif: "image/avif",
   gif: "image/gif",
+  heic: "image/heic",
+  heif: "image/heif",
   jpeg: "image/jpeg",
   jpg: "image/jpeg",
   png: "image/png",
@@ -49,15 +52,6 @@ async function imageToBitmap(file: File) {
 }
 
 async function compressImage(file: File, extension: string) {
-  if (extension === "gif") {
-    return {
-      file,
-      extension,
-      contentType: file.type || extensionContentTypes[extension] || "image/gif",
-      compressed: false,
-    };
-  }
-
   try {
     const bitmap = await imageToBitmap(file);
     const width = "naturalWidth" in bitmap ? bitmap.naturalWidth : bitmap.width;
@@ -101,10 +95,16 @@ async function compressImage(file: File, extension: string) {
       compressed: true,
     };
   } catch {
+    const contentType = file.type || extensionContentTypes[extension] || "image/jpeg";
+
+    if (!uploadableContentTypes.includes(contentType)) {
+      throw new Error("Unsupported image format.");
+    }
+
     return {
       file,
       extension,
-      contentType: file.type || extensionContentTypes[extension] || "image/jpeg",
+      contentType,
       compressed: false,
     };
   }
@@ -118,6 +118,7 @@ export function ServiceImageUploader({
 }: ServiceImageUploaderProps) {
   const [message, setMessage] = useState<string>();
   const [isPending, startTransition] = useTransition();
+  const draftFolder = useMemo(() => crypto.randomUUID(), []);
   const imageUrl = getStorageImageUrl(value, bucket);
 
   function upload(file: File | undefined) {
@@ -143,14 +144,22 @@ export function ServiceImageUploader({
       setMessage(undefined);
       const supabase = createSupabaseBrowserClient();
       const safeExtension = isAllowedExtension ? extension : "jpg";
-      const optimized = await compressImage(file, safeExtension);
+      let optimized: Awaited<ReturnType<typeof compressImage>>;
+
+      try {
+        optimized = await compressImage(file, safeExtension);
+      } catch {
+        setMessage("This image format could not be optimized. Use JPG, PNG, or WebP.");
+        return;
+      }
 
       if (optimized.file.size > maxUploadFileSize) {
         setMessage("Image is still too large after optimization. Use a smaller image.");
         return;
       }
 
-      const path = `${serviceId ?? "new"}/${crypto.randomUUID()}.${optimized.extension}`;
+      const folder = serviceId ?? `draft/${draftFolder}`;
+      const path = `${folder}/${crypto.randomUUID()}.${optimized.extension}`;
       const oldPath = value || null;
       const { error } = await supabase.storage
         .from(bucket)
@@ -209,7 +218,7 @@ export function ServiceImageUploader({
             {isPending ? "Uploading..." : "Upload image"}
             <input
               type="file"
-              accept="image/*,.jpg,.jpeg,.png,.webp,.gif,.avif"
+              accept="image/*,.jpg,.jpeg,.png,.webp,.gif,.avif,.heic,.heif"
               className="sr-only"
               onChange={(event) => upload(event.target.files?.[0])}
             />

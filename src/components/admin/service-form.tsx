@@ -39,6 +39,14 @@ export function ServiceForm({ service }: ServiceFormProps) {
         isActive,
       });
       setResult(actionResult);
+
+      if (actionResult.ok && !service) {
+        setName("");
+        setDescription("");
+        setImagePath("");
+        setSupportsHalfDay(false);
+        setIsActive(true);
+      }
     });
   }
 
