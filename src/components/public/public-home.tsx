@@ -1,8 +1,10 @@
 import Link from "next/link";
 
+import { ImageWithFallback } from "@/components/public/image-with-fallback";
 import { PublicFooter } from "@/components/public/public-footer";
 import { PublicHomeServiceSelector } from "@/components/public/public-home-service-selector";
 import { formatMoney } from "@/lib/format";
+import { getMerchandiseImagePath } from "@/lib/merchandise-images";
 import {
   getMerchandiseImageUrl,
   getPortfolioImageUrl,
@@ -118,24 +120,16 @@ function PortfolioTile({ item }: { item: PortfolioItem }) {
 }
 
 function MerchandiseTile({ product }: { product: MerchandiseProduct }) {
-  const imageUrl = getMerchandiseImageUrl(product.image_path);
+  const imageUrl = getMerchandiseImageUrl(getMerchandiseImagePath(product));
 
   return (
     <Link href={`/merchandise/${product.slug}`} className="group block">
       <span className="block aspect-[4/5] overflow-hidden rounded-[1.2rem] bg-white">
-        {imageUrl ? (
-          // eslint-disable-next-line @next/next/no-img-element
-          <img
-            src={imageUrl}
-            alt={product.name}
-            className="h-full w-full object-cover transition duration-500 group-hover:scale-105"
-            loading="lazy"
-          />
-        ) : (
-          <span className="flex h-full w-full items-center justify-center bg-neutral-100 text-xs text-neutral-500">
-            No image
-          </span>
-        )}
+        <ImageWithFallback
+          src={imageUrl}
+          alt={product.name}
+          className="h-full w-full object-cover transition duration-500 group-hover:scale-105"
+        />
       </span>
       <span className="mt-2 block text-sm font-black leading-tight">{product.name}</span>
       <span className="mt-1 block text-sm text-neutral-600">

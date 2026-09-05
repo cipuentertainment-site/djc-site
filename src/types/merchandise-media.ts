@@ -20,6 +20,18 @@ export type MerchandiseProduct = {
   currency: string;
   image_path: string | null;
   available_colours: string[];
+  images?: MerchandiseProductImage[];
+  is_active?: boolean;
+  sort_order?: number;
+  created_at?: string;
+  updated_at?: string;
+};
+
+export type MerchandiseProductImage = {
+  id?: string;
+  product_id?: string;
+  colour: string;
+  image_path: string;
   is_active?: boolean;
   sort_order?: number;
   created_at?: string;

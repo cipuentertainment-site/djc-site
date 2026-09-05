@@ -183,7 +183,7 @@ export function PublicHomeServiceSelector({
         </div>
 
         {status === "ready" && featuredServices.length ? (
-          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+          <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
             {featuredServices.map((service) => {
               const selected = selectedServiceIds.includes(service.id);
 
@@ -193,7 +193,7 @@ export function PublicHomeServiceSelector({
                   type="button"
                   onClick={() => toggleService(service)}
                   className={cn(
-                    "group relative h-44 overflow-hidden rounded-[1.35rem] bg-neutral-950 text-left transition duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-400 sm:h-48 lg:h-56",
+                    "group relative h-36 overflow-hidden rounded-[1.1rem] bg-neutral-950 text-left transition duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-400 sm:h-48 sm:rounded-[1.35rem] lg:h-56",
                     selected
                       ? "shadow-[0_0_0_3px_rgba(251,191,36,0.95)]"
                       : "hover:-translate-y-0.5 hover:shadow-xl hover:shadow-black/12",
@@ -216,14 +216,14 @@ export function PublicHomeServiceSelector({
                   >
                     <Check className="h-4 w-4" aria-hidden="true" />
                   </span>
-                  <span className="absolute inset-x-0 bottom-0 p-4 text-white">
-                    <span className="block text-xl font-black leading-tight">
-                      {service.name}
+                    <span className="absolute inset-x-0 bottom-0 p-3 text-white sm:p-4">
+                      <span className="block text-base font-black leading-tight sm:text-xl">
+                        {service.name}
+                      </span>
+                      <span className="mt-1 line-clamp-2 block text-[11px] leading-4 text-white/72 sm:text-xs sm:leading-5">
+                        {service.description ?? "Available for configured events."}
+                      </span>
                     </span>
-                    <span className="mt-1 line-clamp-2 block text-xs leading-5 text-white/72">
-                      {service.description ?? "Available for configured events."}
-                    </span>
-                  </span>
                 </button>
               );
             })}

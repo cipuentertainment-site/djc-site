@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useMemo, useState, useTransition } from "react";
 import { ExternalLink, Save, Trash2 } from "lucide-react";
 
 import {
@@ -130,8 +130,7 @@ function PortfolioItemForm({
 
   function save() {
     startTransition(async () => {
-      setResult(
-        await savePortfolioItemAction({
+      const actionResult = await savePortfolioItemAction({
           id: item?.id,
           title,
           description,
@@ -139,8 +138,18 @@ function PortfolioItemForm({
           externalUrl,
           sortOrder: Number(sortOrder),
           isActive,
-        }),
-      );
+        });
+
+      setResult(actionResult);
+
+      if (actionResult.ok && !item) {
+        setTitle("");
+        setDescription("");
+        setThumbnailPath("");
+        setExternalUrl("");
+        setSortOrder(String(nextSortOrder));
+        setIsActive(true);
+      }
     });
   }
 
@@ -239,29 +248,60 @@ function MerchandiseProductForm({
   const [currency, setCurrency] = useState(product?.currency ?? "KES");
   const [imagePath, setImagePath] = useState(product?.image_path ?? "");
   const [colours, setColours] = useState(product?.available_colours.join(", ") ?? "");
+  const [colourImagePaths, setColourImagePaths] = useState<Record<string, string>>(() => {
+    const entries =
+      product?.images?.map((image) => [image.colour, image.image_path] as const) ?? [];
+
+    return Object.fromEntries(entries);
+  });
   const [sortOrder, setSortOrder] = useState(String(product?.sort_order ?? nextSortOrder));
   const [isActive, setIsActive] = useState(product?.is_active ?? true);
   const [result, setResult] = useState<AdminActionResult>();
   const [isPending, startTransition] = useTransition();
+  const availableColours = useMemo(
+    () =>
+      Array.from(
+        new Set(
+          colours
+            .split(/[\n,]/)
+            .map((colour) => colour.trim())
+            .filter(Boolean),
+        ),
+      ),
+    [colours],
+  );
 
   function save() {
     startTransition(async () => {
-      setResult(
-        await saveMerchandiseProductAction({
+      const actionResult = await saveMerchandiseProductAction({
           id: product?.id,
           name,
           description,
           priceAmount: Number(priceAmount),
           currency,
           imagePath,
-          availableColours: colours
-            .split(/[\n,]/)
-            .map((colour) => colour.trim())
-            .filter(Boolean),
+          availableColours,
+          images: availableColours.map((colour) => ({
+            colour,
+            imagePath: colourImagePaths[colour] ?? "",
+          })),
           sortOrder: Number(sortOrder),
           isActive,
-        }),
-      );
+        });
+
+      setResult(actionResult);
+
+      if (actionResult.ok && !product) {
+        setName("");
+        setDescription("");
+        setPriceAmount("0");
+        setCurrency("KES");
+        setImagePath("");
+        setColours("");
+        setColourImagePaths({});
+        setSortOrder(String(nextSortOrder));
+        setIsActive(true);
+      }
     });
   }
 
@@ -328,6 +368,9 @@ function MerchandiseProductForm({
         </div>
         <div className="space-y-2">
           <Label>Product image</Label>
+          <p className="text-xs text-muted-foreground">
+            Used in listings and as a fallback when a colour image is not set.
+          </p>
           <ServiceImageUploader
             value={imagePath}
             onChange={setImagePath}
@@ -335,6 +378,34 @@ function MerchandiseProductForm({
             bucket={merchandiseImagesBucket}
           />
         </div>
+        {availableColours.length ? (
+          <div className="space-y-3 rounded-lg border bg-muted/20 p-3">
+            <div>
+              <Label>Colour images</Label>
+              <p className="mt-1 text-xs text-muted-foreground">
+                Add one image per colour so the customer sees the selected item.
+              </p>
+            </div>
+            <div className="grid gap-3 md:grid-cols-2">
+              {availableColours.map((colour) => (
+                <div key={colour} className="space-y-2 rounded-md border bg-card p-3">
+                  <Label>{colour}</Label>
+                  <ServiceImageUploader
+                    value={colourImagePaths[colour] ?? ""}
+                    onChange={(path) =>
+                      setColourImagePaths((current) => ({
+                        ...current,
+                        [colour]: path,
+                      }))
+                    }
+                    serviceId={product?.id}
+                    bucket={merchandiseImagesBucket}
+                  />
+                </div>
+              ))}
+            </div>
+          </div>
+        ) : null}
         <ResultMessage result={result} />
         <div className="flex flex-wrap gap-2">
           <Button onClick={save} disabled={isPending}>

@@ -10,7 +10,11 @@ import type {
   PublicService,
   PublicServicePrice,
 } from "@/types/booking";
-import type { MerchandiseProduct, PortfolioItem } from "@/types/merchandise-media";
+import type {
+  MerchandiseProduct,
+  MerchandiseProductImage,
+  PortfolioItem,
+} from "@/types/merchandise-media";
 
 type PublicDataResult =
   | { status: "ready"; data: BookingOptions }
@@ -146,9 +150,14 @@ export async function getPublicMediaContent(): Promise<PublicMediaContent> {
       .limit(8),
   ]);
 
+  const merchandiseProducts = (merchandise.data as MerchandiseProduct[] | null) ?? [];
+  const productImages = await getPublicMerchandiseProductImages(
+    merchandiseProducts.map((product) => product.id),
+  );
+
   return {
     portfolioItems: (portfolio.data as PortfolioItem[] | null) ?? [],
-    merchandiseProducts: (merchandise.data as MerchandiseProduct[] | null) ?? [],
+    merchandiseProducts: attachMerchandiseImages(merchandiseProducts, productImages),
   };
 }
 
@@ -172,5 +181,49 @@ export async function getPublicMerchandiseProduct(
     return null;
   }
 
-  return (result.data as MerchandiseProduct | null) ?? null;
+  const product = (result.data as MerchandiseProduct | null) ?? null;
+
+  if (!product) {
+    return null;
+  }
+
+  return {
+    ...product,
+    images: await getPublicMerchandiseProductImages([product.id]),
+  };
+}
+
+async function getPublicMerchandiseProductImages(productIds: string[]) {
+  if (!productIds.length) {
+    return [];
+  }
+
+  const supabase = await createSupabaseServerClient();
+
+  if (!supabase) {
+    return [];
+  }
+
+  const result = await supabase
+    .from("merchandise_product_images")
+    .select("id,product_id,colour,image_path,is_active,sort_order")
+    .in("product_id", productIds)
+    .eq("is_active", true)
+    .order("sort_order");
+
+  if (result.error) {
+    return [];
+  }
+
+  return (result.data as MerchandiseProductImage[] | null) ?? [];
+}
+
+function attachMerchandiseImages(
+  products: MerchandiseProduct[],
+  images: MerchandiseProductImage[],
+) {
+  return products.map((product) => ({
+    ...product,
+    images: images.filter((image) => image.product_id === product.id),
+  }));
 }

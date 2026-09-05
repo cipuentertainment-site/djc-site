@@ -108,6 +108,14 @@ export const merchandiseProductFormSchema = z.object({
   currency: z.string().trim().min(3).max(12),
   imagePath: z.string().trim().optional().nullable(),
   availableColours: z.array(z.string().trim().min(1).max(40)).default([]),
+  images: z
+    .array(
+      z.object({
+        colour: z.string().trim().min(1).max(40),
+        imagePath: z.string().trim().optional().nullable(),
+      }),
+    )
+    .default([]),
   sortOrder: z.coerce.number().int().min(0),
   isActive: z.boolean(),
 });

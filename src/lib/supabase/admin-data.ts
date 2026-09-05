@@ -26,6 +26,7 @@ import type {
 } from "@/types/booking";
 import type {
   MerchandiseProduct,
+  MerchandiseProductImage,
   MerchandiseRequest,
   PortfolioItem,
 } from "@/types/merchandise-media";
@@ -545,9 +546,46 @@ export async function getAdminMerchandiseMediaData(): Promise<
     return classifyError(error.message, empty);
   }
 
+  const merchandiseProducts = (merchandise.data as MerchandiseProduct[] | null) ?? [];
+  const productImages = await getAdminMerchandiseProductImages(
+    client.supabase,
+    merchandiseProducts.map((product) => product.id),
+  );
+
   return toReady({
     portfolioItems: (portfolio.data as PortfolioItem[] | null) ?? [],
-    merchandiseProducts: (merchandise.data as MerchandiseProduct[] | null) ?? [],
+    merchandiseProducts: attachMerchandiseImages(merchandiseProducts, productImages),
     merchandiseRequests: (requests.data as MerchandiseRequest[] | null) ?? [],
   });
+}
+
+async function getAdminMerchandiseProductImages(
+  supabase: Awaited<ReturnType<typeof createSupabaseServerClient>>,
+  productIds: string[],
+) {
+  if (!supabase || !productIds.length) {
+    return [];
+  }
+
+  const result = await supabase
+    .from("merchandise_product_images")
+    .select("id,product_id,colour,image_path,is_active,sort_order,created_at,updated_at")
+    .in("product_id", productIds)
+    .order("sort_order");
+
+  if (result.error) {
+    return [];
+  }
+
+  return (result.data as MerchandiseProductImage[] | null) ?? [];
+}
+
+function attachMerchandiseImages(
+  products: MerchandiseProduct[],
+  images: MerchandiseProductImage[],
+) {
+  return products.map((product) => ({
+    ...product,
+    images: images.filter((image) => image.product_id === product.id),
+  }));
 }

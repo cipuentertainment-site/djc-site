@@ -2,12 +2,10 @@ import Image from "next/image";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 
-import { MerchandiseRequestForm } from "@/components/public/merchandise-request-form";
+import { MerchandiseProductDetail } from "@/components/public/merchandise-product-detail";
 import { PublicFooter } from "@/components/public/public-footer";
 import { Button } from "@/components/ui/button";
-import { formatMoney } from "@/lib/format";
 import { getPublicBookingOptions, getPublicMerchandiseProduct } from "@/lib/supabase/public-data";
-import { getMerchandiseImageUrl } from "@/lib/supabase/storage";
 
 type MerchandiseProductPageProps = {
   params: Promise<{
@@ -30,7 +28,6 @@ export default async function MerchandiseProductPage({
 
   const settings = bookingOptions.data.settings;
   const businessName = settings?.business_name ?? "DJC Entertainment";
-  const imageUrl = getMerchandiseImageUrl(product.image_path);
 
   return (
     <main className="min-h-screen bg-[#faf8f3] px-4 py-4 text-neutral-950 sm:px-6">
@@ -58,43 +55,7 @@ export default async function MerchandiseProductPage({
           </Button>
         </header>
 
-        <section className="grid gap-6 pb-8 lg:grid-cols-[0.9fr_1.1fr] lg:items-start">
-          <div className="aspect-[4/5] overflow-hidden rounded-[1.6rem] bg-white">
-            {imageUrl ? (
-              // eslint-disable-next-line @next/next/no-img-element
-              <img src={imageUrl} alt={product.name} className="h-full w-full object-cover" />
-            ) : (
-              <div className="flex h-full items-center justify-center bg-neutral-100 text-sm text-neutral-500">
-                No product image
-              </div>
-            )}
-          </div>
-
-          <div className="space-y-6 lg:pt-8">
-            <div>
-              <p className="text-xs font-black uppercase tracking-[0.18em] text-amber-700">
-                DJC Merchandise
-              </p>
-              <h1 className="mt-2 text-4xl font-black leading-none sm:text-5xl">
-                {product.name}
-              </h1>
-              <p className="mt-3 text-xl font-black">
-                {formatMoney(product.price_amount, product.currency)}
-              </p>
-              {product.description ? (
-                <p className="mt-4 max-w-xl text-sm leading-6 text-neutral-600">
-                  {product.description}
-                </p>
-              ) : null}
-              <p className="mt-3 text-xs leading-5 text-neutral-500">
-                No online payment is required here. Send a request and DJC
-                Entertainment will contact you to confirm details.
-              </p>
-            </div>
-
-            <MerchandiseRequestForm product={product} />
-          </div>
-        </section>
+        <MerchandiseProductDetail product={product} />
 
         <PublicFooter
           businessName={businessName}

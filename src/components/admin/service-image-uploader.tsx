@@ -120,6 +120,8 @@ export function ServiceImageUploader({
   const [isPending, startTransition] = useTransition();
   const draftFolder = useMemo(() => crypto.randomUUID(), []);
   const imageUrl = getStorageImageUrl(value, bucket);
+  const [failedImageUrl, setFailedImageUrl] = useState<string | null>(null);
+  const imageFailed = Boolean(imageUrl && failedImageUrl === imageUrl);
 
   function upload(file: File | undefined) {
     if (!file) {
@@ -202,9 +204,14 @@ export function ServiceImageUploader({
   return (
     <div className="space-y-2">
       <div className="aspect-[16/9] overflow-hidden rounded-lg border bg-muted">
-        {imageUrl ? (
+        {imageUrl && !imageFailed ? (
           // eslint-disable-next-line @next/next/no-img-element
-          <img src={imageUrl} alt="Service preview" className="h-full w-full object-cover" />
+          <img
+            src={imageUrl}
+            alt="Upload preview"
+            className="h-full w-full object-cover"
+            onError={() => setFailedImageUrl(imageUrl)}
+          />
         ) : (
           <div className="flex h-full items-center justify-center text-sm text-muted-foreground">
             No image uploaded

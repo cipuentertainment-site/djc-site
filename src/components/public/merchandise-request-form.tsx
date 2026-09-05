@@ -11,6 +11,8 @@ import type { MerchandiseProduct } from "@/types/merchandise-media";
 
 type MerchandiseRequestFormProps = {
   product: MerchandiseProduct;
+  selectedColour?: string;
+  onSelectedColourChange?: (colour: string) => void;
 };
 
 type RequestResponse = {
@@ -19,8 +21,15 @@ type RequestResponse = {
   fieldErrors?: Record<string, string[]>;
 };
 
-export function MerchandiseRequestForm({ product }: MerchandiseRequestFormProps) {
-  const [selectedColour, setSelectedColour] = useState(product.available_colours[0] ?? "");
+export function MerchandiseRequestForm({
+  product,
+  selectedColour: controlledSelectedColour,
+  onSelectedColourChange,
+}: MerchandiseRequestFormProps) {
+  const [internalSelectedColour, setInternalSelectedColour] = useState(
+    product.available_colours[0] ?? "",
+  );
+  const selectedColour = controlledSelectedColour ?? internalSelectedColour;
   const [quantity, setQuantity] = useState("1");
   const [customerName, setCustomerName] = useState("");
   const [customerPhone, setCustomerPhone] = useState("");
@@ -28,6 +37,11 @@ export function MerchandiseRequestForm({ product }: MerchandiseRequestFormProps)
   const [fieldErrors, setFieldErrors] = useState<Record<string, string[]>>({});
   const [isSuccess, setIsSuccess] = useState(false);
   const [isPending, startTransition] = useTransition();
+
+  function chooseColour(colour: string) {
+    setInternalSelectedColour(colour);
+    onSelectedColourChange?.(colour);
+  }
 
   function submit() {
     startTransition(async () => {
@@ -84,7 +98,7 @@ export function MerchandiseRequestForm({ product }: MerchandiseRequestFormProps)
               <button
                 key={colour}
                 type="button"
-                onClick={() => setSelectedColour(colour)}
+                onClick={() => chooseColour(colour)}
                 className={cn(
                   "h-10 rounded-full border px-4 text-sm font-bold transition",
                   selectedColour === colour

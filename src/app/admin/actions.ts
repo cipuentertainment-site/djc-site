@@ -618,6 +618,7 @@ export async function saveMerchandiseProductAction(
   const colours = Array.from(
     new Set(parsed.data.availableColours.map((colour) => colour.trim()).filter(Boolean)),
   );
+  const colourKeys = new Set(colours.map((colour) => colour.toLowerCase()));
   const payload = {
     name: parsed.data.name.trim(),
     slug: slugify(parsed.data.name),
@@ -635,10 +636,51 @@ export async function saveMerchandiseProductAction(
         .from("merchandise_products")
         .update(payload)
         .eq("id", parsed.data.id)
-    : await client.supabase.from("merchandise_products").insert(payload);
+        .select("id,slug")
+        .single()
+    : await client.supabase.from("merchandise_products").insert(payload).select("id,slug").single();
 
   if (result.error) {
     return { ok: false, message: friendlyError(result.error.message) };
+  }
+
+  const productId = result.data.id as string;
+  const imageRows = parsed.data.images
+    .map((image) => ({
+      colour: image.colour.trim(),
+      image_path: image.imagePath?.trim() ?? "",
+    }))
+    .filter(
+      (image) =>
+        image.image_path &&
+        image.colour &&
+        colourKeys.has(image.colour.toLowerCase()),
+    )
+    .map((image, index) => ({
+      product_id: productId,
+      colour: image.colour,
+      image_path: image.image_path,
+      is_active: true,
+      sort_order: (index + 1) * 10,
+    }));
+
+  const deleteImages = await client.supabase
+    .from("merchandise_product_images")
+    .delete()
+    .eq("product_id", productId);
+
+  if (deleteImages.error) {
+    return { ok: false, message: friendlyError(deleteImages.error.message) };
+  }
+
+  if (imageRows.length) {
+    const insertImages = await client.supabase
+      .from("merchandise_product_images")
+      .insert(imageRows);
+
+    if (insertImages.error) {
+      return { ok: false, message: friendlyError(insertImages.error.message) };
+    }
   }
 
   revalidatePath("/");
