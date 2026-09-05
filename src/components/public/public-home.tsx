@@ -31,6 +31,7 @@ export function PublicHome({ options, media, status, errorMessage }: PublicHomeP
       <div className="mx-auto w-full max-w-6xl px-4 sm:px-6 lg:px-8">
         <PublicHomeServiceSelector
           options={options}
+          portfolioItems={media.portfolioItems}
           status={status}
           errorMessage={errorMessage}
         />

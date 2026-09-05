@@ -2,27 +2,31 @@
 
 import Image from "next/image";
 import Link from "next/link";
-import { useMemo, useState } from "react";
-import { ArrowRight, Check } from "lucide-react";
+import { useEffect, useMemo, useState } from "react";
+import { ArrowRight, Check, Play } from "lucide-react";
 
 import { ServiceImage } from "@/components/public/service-image";
 import { Button } from "@/components/ui/button";
-import { getServiceImageUrl } from "@/lib/supabase/storage";
+import { getPortfolioImageUrl } from "@/lib/supabase/storage";
 import { cn } from "@/lib/utils";
 import type { BookingOptions, PublicService } from "@/types/booking";
+import type { PortfolioItem } from "@/types/merchandise-media";
 
 type PublicHomeServiceSelectorProps = {
   options: BookingOptions;
+  portfolioItems: PortfolioItem[];
   status: "ready" | "not_configured" | "error";
   errorMessage?: string;
 };
 
 export function PublicHomeServiceSelector({
   options,
+  portfolioItems,
   status,
   errorMessage,
 }: PublicHomeServiceSelectorProps) {
   const [selectedServiceIds, setSelectedServiceIds] = useState<string[]>([]);
+  const [activeSlideIndex, setActiveSlideIndex] = useState(0);
   const settings = options.settings;
   const businessName = settings?.business_name ?? "DJC Entertainment";
   const featuredServices = useMemo(() => {
@@ -42,18 +46,21 @@ export function PublicHomeServiceSelector({
   const compactServiceSummary = featuredServices.length
     ? featuredServices.slice(0, 3).map((service) => service.name).join(" - ")
     : "Entertainment services";
-  const serviceSummary = featuredServices.length
-    ? featuredServices.map((service) => service.name).join(" - ")
-    : "Entertainment services";
-  const heroImageUrl = useMemo(
+  const heroSlides = useMemo(
     () =>
-      featuredServices
-        .map((service) => getServiceImageUrl(service.image_path))
-        .find((url): url is string => Boolean(url)) ?? null,
-    [featuredServices],
+      portfolioItems
+        .map((item) => ({
+          id: item.id,
+          title: item.title,
+          url: getPortfolioImageUrl(item.thumbnail_path),
+          href: item.external_url,
+        }))
+        .filter((item) => Boolean(item.url)),
+    [portfolioItems],
   );
+  const activeSlide = heroSlides[activeSlideIndex % Math.max(heroSlides.length, 1)];
   const [failedHeroImageUrl, setFailedHeroImageUrl] = useState<string | null>(null);
-  const heroImageFailed = Boolean(heroImageUrl && failedHeroImageUrl === heroImageUrl);
+  const heroImageFailed = Boolean(activeSlide?.url && failedHeroImageUrl === activeSlide.url);
   const bookHref = useMemo(() => {
     const params = new URLSearchParams();
 
@@ -71,6 +78,18 @@ export function PublicHomeServiceSelector({
         : [...current, service.id],
     );
   }
+
+  useEffect(() => {
+    if (heroSlides.length <= 1) {
+      return;
+    }
+
+    const interval = window.setInterval(() => {
+      setActiveSlideIndex((current) => (current + 1) % heroSlides.length);
+    }, 4200);
+
+    return () => window.clearInterval(interval);
+  }, [heroSlides.length]);
 
   return (
     <>
@@ -111,62 +130,59 @@ export function PublicHomeServiceSelector({
         </nav>
       </header>
 
-      <section className="grid gap-5 pb-6 pt-2 lg:grid-cols-[0.9fr_1.1fr] lg:items-end lg:pb-8 lg:pt-5">
-        <div className="relative min-h-[360px] overflow-hidden rounded-[1.75rem] bg-neutral-950 text-white sm:min-h-[420px] lg:order-2">
-          {heroImageUrl && !heroImageFailed ? (
+      <section className="pb-5 pt-1 sm:pb-7 sm:pt-3">
+        <div className="relative -mx-4 min-h-[310px] overflow-hidden bg-neutral-950 text-white sm:mx-0 sm:min-h-[420px] sm:rounded-[1.75rem]">
+          {activeSlide?.url && !heroImageFailed ? (
             // eslint-disable-next-line @next/next/no-img-element
             <img
-              src={heroImageUrl}
-              alt=""
+              src={activeSlide.url}
+              alt={activeSlide.title}
               className="absolute inset-0 h-full w-full object-cover"
-              aria-hidden="true"
-              onError={() => setFailedHeroImageUrl(heroImageUrl)}
+              onError={() => setFailedHeroImageUrl(activeSlide.url)}
             />
           ) : (
             <div className="absolute inset-0 bg-[linear-gradient(135deg,#111,#3b2c11_46%,#0b0b0b)]" />
           )}
-          <div className="absolute inset-0 bg-[linear-gradient(180deg,rgba(0,0,0,0.1),rgba(0,0,0,0.42)_48%,rgba(0,0,0,0.92))]" />
-          <div className="absolute inset-x-0 bottom-0 p-5 sm:p-6">
-            <p className="max-w-sm text-sm font-semibold leading-6 text-white/78">
-              Premium entertainment support for weddings, parties, corporate events,
-              private celebrations and community moments.
-            </p>
+          <div className="absolute inset-0 bg-[linear-gradient(180deg,rgba(0,0,0,0)_0%,rgba(0,0,0,0.1)_42%,rgba(0,0,0,0.72)_72%,rgba(0,0,0,0.96)_100%)]" />
+          {activeSlide?.href ? (
+            <a
+              href={activeSlide.href}
+              target="_blank"
+              rel="noreferrer"
+              className="absolute right-4 top-4 flex h-11 w-11 items-center justify-center rounded-full bg-white/92 text-neutral-950 shadow-lg transition hover:bg-amber-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-300"
+              aria-label="Open portfolio video"
+            >
+              <Play className="h-5 w-5 fill-current" aria-hidden="true" />
+            </a>
+          ) : null}
+          <div className="absolute inset-x-0 bottom-0 p-5 sm:p-7">
+            <h1 className="max-w-xl text-4xl font-black leading-[0.92] tracking-normal sm:text-6xl lg:text-7xl">
+              Let your event stand out.
+            </h1>
           </div>
         </div>
 
-        <div className="py-1 lg:pb-8">
-          <p className="text-xs font-black uppercase tracking-[0.18em] text-amber-700">
-            DJC Entertainment
+        <div className="pt-4">
+          <p className="max-w-xl text-sm font-semibold leading-6 text-neutral-600">
+            Select a service, press Book an Event, then fill in your details on the
+            next page.
           </p>
-          <h1 className="mt-3 max-w-xl text-5xl font-black leading-[0.9] tracking-normal text-neutral-950 sm:text-6xl lg:text-7xl">
-            Let your event sound right.
-          </h1>
-          <p className="mt-4 max-w-md text-base leading-7 text-neutral-600">
-            {serviceSummary} for events with clean planning, strong presence and a
-            simple booking request flow.
-          </p>
-          <div className="mt-5 flex flex-wrap items-center gap-3">
+          <div className="mt-4">
             <Button
               asChild
-              className="h-12 rounded-full bg-amber-400 px-5 text-sm font-black text-black hover:bg-amber-300"
+              className="h-12 w-full rounded-full bg-amber-400 px-5 text-sm font-black text-black hover:bg-amber-300 sm:w-auto"
             >
               <Link href={bookHref}>
                 Book an Event
                 <ArrowRight className="h-4 w-4" />
               </Link>
             </Button>
-            <a
-              href="#services"
-              className="text-sm font-bold text-neutral-600 underline-offset-4 hover:text-neutral-950 hover:underline"
-            >
-              Explore services
-            </a>
           </div>
         </div>
       </section>
 
-      <section id="services" className="border-t border-black/10 py-7 sm:py-9">
-        <div className="mb-4 flex items-end justify-between gap-4">
+      <section id="services" className="border-t border-black/10 py-5 sm:py-8">
+        <div className="mb-3 flex items-end justify-between gap-4">
           <div>
             <p className="text-xs font-black uppercase tracking-[0.18em] text-amber-700">
               Services
@@ -235,22 +251,6 @@ export function PublicHomeServiceSelector({
               : errorMessage ?? "Services will appear here once configured."}
           </div>
         )}
-
-        <div className="mt-5 flex flex-col gap-3 border-t border-black/10 pt-5 sm:flex-row sm:items-center sm:justify-between">
-          <p className="max-w-lg text-sm leading-6 text-neutral-600">
-            Choose one or more services, then continue to select the event type,
-            size, date and location.
-          </p>
-          <Button
-            asChild
-            className="h-12 rounded-full bg-neutral-950 px-5 text-sm font-black text-white hover:bg-neutral-800"
-          >
-            <Link href={bookHref}>
-              Book an Event
-              <ArrowRight className="h-4 w-4" />
-            </Link>
-          </Button>
-        </div>
       </section>
     </>
   );

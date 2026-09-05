@@ -535,7 +535,7 @@ export function BookingFlow({ options, status, initialServiceIds }: BookingFlowP
                   <span className="font-black text-neutral-950">Full Day</span>
                   <p className="mt-1 text-xs text-neutral-500">
                     {eventTypeId
-                      ? "This event type is configured for Full Day bookings."
+                      ? "This event is only for Full Day bookings."
                       : "Select an event type first."}
                   </p>
                 </div>
