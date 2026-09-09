@@ -942,7 +942,7 @@ function Checkout({
 
       {paymentMode === "manual" ? (
         <div className="rounded-2xl border border-amber-200 bg-amber-50 p-3 text-sm text-neutral-800">
-          Online reservation payment is currently unavailable. Submit your request and DJC Entertainment will contact you to confirm your booking.
+          Submit your request and DJC Entertainment will contact you to confirm your booking.
         </div>
       ) : (
         <div className="space-y-2">
@@ -995,7 +995,7 @@ function Checkout({
       ) : (
         <p className="text-xs text-neutral-500">
           {paymentMode === "manual"
-            ? "No online payment will be recorded. The team will confirm reservation details with you directly."
+            ? "The team will confirm your booking with you directly soon...."
             : "You are paying the reservation fee only. The full event amount is handled after the business contacts you."}
         </p>
       )}
