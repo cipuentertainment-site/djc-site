@@ -401,25 +401,36 @@ export function BookingFlow({ options, status, initialServiceIds }: BookingFlowP
 
   return (
     <section>
-      <div className="rounded-3xl border border-black/10 bg-white p-4 shadow-sm sm:p-6">
+      <div
+        className={cn(
+          step === "details"
+            ? ""
+            : "rounded-3xl border border-slate-200 bg-white p-4 shadow-sm sm:p-6",
+        )}
+      >
         <div className="mb-5 flex items-start justify-between gap-4">
           <div>
-            <p className="text-xs font-bold uppercase tracking-[0.18em] text-amber-700">
+            <p className="text-[11px] font-bold uppercase tracking-[0.2em] text-[#F97316]">
               {step === "details" ? "Book an event" : "Review estimate"}
             </p>
-            <h1 className="mt-1 text-2xl font-black tracking-normal sm:text-3xl">
+            <h1 className="mt-0.5 text-2xl font-extrabold tracking-tight text-[#0F172A]">
               {step === "details"
-                ? "Tell us about the event."
+                ? "Tell us about the event"
                 : options.paymentMode === "manual"
-                  ? "Review your request."
-                  : "Reserve your request."}
+                  ? "Review your request"
+                  : "Reserve your request"}
             </h1>
+            {step === "details" ? (
+              <p className="mt-1 text-xs text-slate-500">
+                Fill in the event specs below to receive your itemized booking estimate.
+              </p>
+            ) : null}
           </div>
           {step === "checkout" && paymentState !== "success" ? (
             <Button
               variant="outline"
               size="sm"
-              className="border-neutral-300 bg-white text-neutral-950 hover:bg-neutral-100"
+              className="border-slate-200 bg-white text-[#0F172A] hover:bg-slate-100"
               onClick={() => setStep("details")}
             >
               <ArrowLeft className="h-4 w-4" />
@@ -429,100 +440,115 @@ export function BookingFlow({ options, status, initialServiceIds }: BookingFlowP
         </div>
 
         {step === "details" ? (
-          <div className="space-y-5">
-            <div className="grid gap-4 sm:grid-cols-2">
-              <FieldError error={fieldErrors.eventTypeId?.[0]}>
-                <Label>Event type</Label>
-                <Select value={eventTypeId} onValueChange={updateEventType}>
-                  <SelectTrigger className="h-12 border-neutral-300 bg-white text-neutral-950">
-                    <SelectValue placeholder="Select event type" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {options.eventTypes.map((eventType) => (
-                      <SelectItem key={eventType.id} value={eventType.id}>
-                        {eventType.name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </FieldError>
+          <div className="space-y-6">
+            <FieldError error={fieldErrors.eventTypeId?.[0]}>
+              <Label className="mb-1.5 block text-xs font-bold uppercase tracking-wider text-slate-500">
+                Event Type
+              </Label>
+              <Select value={eventTypeId} onValueChange={updateEventType}>
+                <SelectTrigger className="h-auto rounded-xl border-slate-200 bg-white py-3.5 pl-4 pr-10 text-sm font-semibold text-[#0F172A] shadow-sm focus:border-[#F97316] focus:ring-2 focus:ring-[#F97316]/20">
+                  <SelectValue placeholder="Select event type" />
+                </SelectTrigger>
+                <SelectContent>
+                  {options.eventTypes.map((eventType) => (
+                    <SelectItem key={eventType.id} value={eventType.id}>
+                      {eventType.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </FieldError>
 
-              <FieldError error={fieldErrors.eventSizeId?.[0]}>
-                <Label>Event size</Label>
-                <div className="grid grid-cols-3 gap-2">
-                  {eventSizes.length ? (
-                    eventSizes.map((size) => (
+            <FieldError error={fieldErrors.eventSizeId?.[0]}>
+              <div className="mb-1.5 flex items-center justify-between gap-3">
+                <Label className="block text-xs font-bold uppercase tracking-wider text-slate-500">
+                  Event Size
+                </Label>
+                <span className="text-[11px] font-medium text-slate-400">Estimated guests</span>
+              </div>
+              <div className="grid grid-cols-3 gap-2 rounded-2xl bg-slate-100 p-1">
+                {eventSizes.length && eventTypeId ? (
+                  eventSizes.map((size) => {
+                    const selected = eventSizeId === size.id;
+
+                    return (
                       <button
                         key={size.id}
                         type="button"
+                        disabled={!eventTypeId}
+                        aria-pressed={selected}
                         onClick={() => {
                           setEventSizeId(size.id);
                           setQuoteResult(null);
                           resetPayment();
                         }}
                         className={cn(
-                          "min-h-16 rounded-2xl border px-2 py-2 text-center text-sm transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-400",
-                          eventSizeId === size.id
-                            ? "border-neutral-950 bg-neutral-950 text-white"
-                            : "border-neutral-300 bg-neutral-50 text-neutral-950 hover:border-amber-500",
+                          "cursor-pointer rounded-xl px-2 py-2.5 text-center transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#F97316] disabled:cursor-not-allowed disabled:opacity-50",
+                          selected
+                            ? "bg-[#0F172A] text-white shadow-sm"
+                            : "text-[#0F172A] hover:bg-white/60",
                         )}
                       >
-                        <span className="block font-black capitalize">{size.label}</span>
-                        <span className={cn("text-xs", eventSizeId === size.id ? "text-white/70" : "text-neutral-500")}>
-                          {size.min_attendees}-{size.max_attendees}
+                        <span className="block text-xs font-bold capitalize">{size.label}</span>
+                        <span
+                          className={cn(
+                            "mt-0.5 block text-[10px] font-medium",
+                            selected ? "text-slate-300" : "text-slate-500",
+                          )}
+                        >
+                          {size.min_attendees} - {size.max_attendees}
                         </span>
                       </button>
-                    ))
-                  ) : (
-                    <p className="col-span-3 rounded-2xl border border-dashed border-neutral-300 bg-neutral-50 p-3 text-sm text-neutral-500">
-                      Select an event type first.
-                    </p>
-                  )}
-                </div>
-              </FieldError>
-            </div>
+                    );
+                  })
+                ) : (
+                  <p className="col-span-3 rounded-xl px-3 py-3 text-center text-xs text-slate-500">
+                    {eventTypeId ? "No event sizes are configured for this event." : "Select an event type first."}
+                  </p>
+                )}
+              </div>
+            </FieldError>
 
             <FieldError error={fieldErrors.duration?.[0]}>
-              <Label>Event duration</Label>
-              {selectedEventType?.supports_half_day ? (
+              <Label className="mb-1.5 block text-xs font-bold uppercase tracking-wider text-slate-500">
+                Event Duration
+              </Label>
+              {!eventTypeId ? (
+                <div className="rounded-2xl bg-slate-100 px-3 py-3 text-center text-xs text-slate-500">
+                  Select an event type first.
+                </div>
+              ) : selectedEventType?.supports_half_day ? (
                 <div className="space-y-2">
-                  <div className="grid grid-cols-2 gap-2">
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setDuration("full_day");
-                        setQuoteResult(null);
-                        resetPayment();
-                      }}
-                      className={cn(
-                        "h-12 rounded-2xl border px-3 text-sm font-black transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-400",
-                        activeDuration === "full_day"
-                          ? "border-neutral-950 bg-neutral-950 text-white"
-                          : "border-neutral-300 bg-neutral-50 text-neutral-950 hover:border-amber-500",
-                      )}
-                    >
-                      Full Day
-                    </button>
-                    <button
-                      type="button"
-                      disabled={!halfDayAvailable}
-                      onClick={() => {
-                        setDuration("half_day");
-                        setQuoteResult(null);
-                        resetPayment();
-                      }}
-                      className={cn(
-                        "h-12 rounded-2xl border px-3 text-sm font-black transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-400 disabled:cursor-not-allowed disabled:opacity-50",
-                        activeDuration === "half_day"
-                          ? "border-neutral-950 bg-neutral-950 text-white"
-                          : "border-neutral-300 bg-neutral-50 text-neutral-950 hover:border-amber-500",
-                      )}
-                    >
-                      Half Day
-                    </button>
+                  <div className="grid grid-cols-2 gap-2 rounded-2xl bg-slate-100 p-1">
+                    {(["full_day", "half_day"] as const).map((option) => {
+                      const selected = activeDuration === option;
+                      const disabled = option === "half_day" && !halfDayAvailable;
+
+                      return (
+                        <button
+                          key={option}
+                          type="button"
+                          disabled={disabled}
+                          aria-pressed={selected}
+                          onClick={() => {
+                            setDuration(option);
+                            setQuoteResult(null);
+                            resetPayment();
+                          }}
+                          className={cn(
+                            "cursor-pointer rounded-xl px-3 py-2.5 text-xs font-bold transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#F97316] disabled:cursor-not-allowed disabled:opacity-45",
+                            selected
+                              ? "bg-[#0F172A] text-white shadow-sm"
+                              : "text-[#0F172A] hover:bg-white/60",
+                          )}
+                        >
+                          {option === "half_day" ? "Half Day" : "Full Day"}
+                        </button>
+                      );
+                    })}
                   </div>
                   {!halfDayAvailable ? (
-                    <p className="text-xs text-neutral-500">
+                    <p className="text-[11px] font-medium text-slate-400">
                       Half Day is available only when all selected services support it.
                       {incompatibleSelectedServices.length
                         ? ` Full Day only: ${incompatibleSelectedServices.map((service) => service.name).join(", ")}.`
@@ -531,20 +557,21 @@ export function BookingFlow({ options, status, initialServiceIds }: BookingFlowP
                   ) : null}
                 </div>
               ) : (
-                <div className="rounded-2xl border border-neutral-300 bg-neutral-50 p-3 text-sm">
-                  <span className="font-black text-neutral-950">Full Day</span>
-                  <p className="mt-1 text-xs text-neutral-500">
-                    {eventTypeId
-                      ? "This event is only for Full Day bookings."
-                      : "Select an event type first."}
-                  </p>
+                <div className="rounded-2xl bg-slate-100 px-3 py-3 text-xs text-slate-500">
+                  <span className="font-bold text-[#0F172A]">Full Day</span>
+                  <p className="mt-1">This event is only for Full Day bookings.</p>
                 </div>
               )}
             </FieldError>
 
             <FieldError error={fieldErrors.serviceIds?.[0]}>
-              <Label>Services</Label>
-              <div className="grid gap-2 sm:grid-cols-2">
+              <div className="mb-2 flex items-center justify-between gap-3">
+                <Label className="block text-xs font-bold uppercase tracking-wider text-slate-500">
+                  Services Required
+                </Label>
+                <span className="text-[11px] font-medium text-[#F97316]">Select all that apply</span>
+              </div>
+              <div className="space-y-2.5">
                 {availableServices.map((service) => {
                   const selected = serviceIds.includes(service.id);
                   const price = selectedPrices.find((item) => item.service_id === service.id);
@@ -553,22 +580,23 @@ export function BookingFlow({ options, status, initialServiceIds }: BookingFlowP
                     <button
                       key={service.id}
                       type="button"
+                      aria-pressed={selected}
                       onClick={() => toggleService(service.id)}
                       className={cn(
-                        "grid grid-cols-[58px_1fr_auto] items-center gap-3 rounded-2xl border p-2 text-left text-sm transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-400",
+                        "relative flex w-full items-center rounded-2xl border bg-white p-3 text-left shadow-sm transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#F97316]",
                         selected
-                          ? "border-neutral-950 bg-amber-100"
-                          : "border-neutral-300 bg-white hover:border-amber-500",
+                          ? "border-[#F97316] bg-[#FFFBF7]"
+                          : "border-slate-200/90 hover:border-[#F97316]/40",
                       )}
                     >
                       <ServiceImage
                         imagePath={service.image_path}
                         name={service.name}
-                        className="h-14 w-14 rounded-xl"
+                        className="h-12 w-12 shrink-0 rounded-xl"
                       />
-                      <span className="min-w-0">
-                        <span className="block font-black">{service.name}</span>
-                        <span className="text-xs text-neutral-500">
+                      <span className="ml-3 min-w-0 flex-1">
+                        <span className="block truncate text-sm font-bold text-[#0F172A]">{service.name}</span>
+                        <span className="text-[11px] font-medium text-slate-400">
                           {eventTypeId && eventSizeId
                             ? price
                               ? "Pricing shown at review"
@@ -578,13 +606,13 @@ export function BookingFlow({ options, status, initialServiceIds }: BookingFlowP
                       </span>
                       <span
                         className={cn(
-                          "flex h-7 w-7 items-center justify-center rounded-full border",
+                          "ml-2 flex h-6 w-6 shrink-0 items-center justify-center rounded-full border transition-all",
                           selected
-                            ? "border-neutral-950 bg-neutral-950 text-amber-300"
-                            : "border-neutral-300 bg-white text-transparent",
+                            ? "border-[#F97316] bg-[#F97316] text-white"
+                            : "border-slate-300 bg-white text-transparent",
                         )}
                       >
-                        <Check className="h-4 w-4" aria-hidden="true" />
+                        <Check className="h-3.5 w-3.5" aria-hidden="true" />
                       </span>
                     </button>
                   );
@@ -592,18 +620,21 @@ export function BookingFlow({ options, status, initialServiceIds }: BookingFlowP
               </div>
             </FieldError>
 
-            <div className="grid gap-4 sm:grid-cols-2">
+            <div className="space-y-3.5 border-t border-slate-100 pt-5">
+              <p className="text-xs font-bold uppercase tracking-wider text-slate-500">Location &amp; Timing</p>
               <FieldError error={fieldErrors.eventDate?.[0]}>
-                <Label htmlFor="event-date">Event date</Label>
+                <Label htmlFor="event-date" className="mb-1 block text-[11px] font-semibold text-slate-500">
+                  Event Date
+                </Label>
                 <DateInput
                   id="event-date"
                   min={format(new Date(), "yyyy-MM-dd")}
                   value={eventDate}
                   onChange={(event) => updateDate(event.target.value)}
-                  className="h-12 border-neutral-300 bg-white text-neutral-950"
+                  className="h-auto rounded-xl border-slate-200 bg-white px-3.5 py-3 text-sm font-semibold text-[#0F172A] shadow-sm focus:border-[#F97316] focus:ring-2 focus:ring-[#F97316]/20"
                 />
                 {dateAvailability ? (
-                  <p className={cn("text-xs", dateAvailability.is_available ? "text-emerald-700" : "text-red-600")}>
+                  <p className={cn("text-[11px] font-medium", dateAvailability.is_available ? "text-emerald-600" : "text-red-600")}>
                     {dateAvailability.is_available
                       ? formatRemainingSlots(dateAvailability)
                       : "This date is unavailable"}
@@ -611,52 +642,87 @@ export function BookingFlow({ options, status, initialServiceIds }: BookingFlowP
                 ) : null}
               </FieldError>
 
-              <FieldError error={fieldErrors.county?.[0]}>
-                <Label>County</Label>
-                <Select value={county} onValueChange={setCounty}>
-                  <SelectTrigger className="h-12 border-neutral-300 bg-white text-neutral-950">
-                    <SelectValue placeholder="Select county" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {KENYAN_COUNTIES.map((item) => (
-                      <SelectItem key={item} value={item}>
-                        {item}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </FieldError>
+              <div className="grid grid-cols-2 gap-3">
+                <FieldError error={fieldErrors.county?.[0]}>
+                  <Label className="mb-1 block text-[11px] font-semibold text-slate-500">County</Label>
+                  <Select value={county} onValueChange={setCounty}>
+                    <SelectTrigger className="h-auto rounded-xl border-slate-200 bg-white py-3 pl-3.5 pr-8 text-xs font-semibold text-[#0F172A] shadow-sm focus:border-[#F97316] focus:ring-2 focus:ring-[#F97316]/20">
+                      <SelectValue placeholder="Select county" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {KENYAN_COUNTIES.map((item) => (
+                        <SelectItem key={item} value={item}>
+                          {item}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </FieldError>
+                <TextField
+                  label="Town / Centre"
+                  value={townCentre}
+                  onChange={setTownCentre}
+                  error={fieldErrors.townCentre?.[0]}
+                  placeholder="e.g. Eldoret CBD"
+                />
+              </div>
+
+              <TextField
+                label="Exact Location / Venue Name"
+                value={exactLocation}
+                onChange={setExactLocation}
+                error={fieldErrors.exactLocation?.[0]}
+                placeholder="e.g. Boma Inn Gardens or Private Residence"
+              />
             </div>
 
-            <div className="grid gap-4 sm:grid-cols-2">
-              <TextField label="Town / centre" value={townCentre} onChange={setTownCentre} error={fieldErrors.townCentre?.[0]} />
-              <TextField label="Exact location" value={exactLocation} onChange={setExactLocation} error={fieldErrors.exactLocation?.[0]} />
-              <TextField label="Full name" value={customerName} onChange={setCustomerName} error={fieldErrors.customerName?.[0]} />
-              <TextField label="Phone / WhatsApp" value={customerPhone} onChange={setCustomerPhone} error={fieldErrors.customerPhone?.[0]} inputMode="tel" />
-              <TextField label="Email (optional)" value={customerEmail} onChange={setCustomerEmail} error={fieldErrors.customerEmail?.[0]} type="email" />
+            <div className="space-y-3.5 border-t border-slate-100 pt-5">
+              <p className="text-xs font-bold uppercase tracking-wider text-slate-500">Your Contact Info</p>
+              <TextField
+                label="Full Name"
+                value={customerName}
+                onChange={setCustomerName}
+                error={fieldErrors.customerName?.[0]}
+                placeholder="First and last name"
+              />
+              <TextField
+                label="Phone / WhatsApp Number"
+                value={customerPhone}
+                onChange={setCustomerPhone}
+                error={fieldErrors.customerPhone?.[0]}
+                inputMode="tel"
+                placeholder="0705 306 521"
+              />
+              <TextField
+                label="Email Address"
+                value={customerEmail}
+                onChange={setCustomerEmail}
+                error={fieldErrors.customerEmail?.[0]}
+                type="email"
+                placeholder="example@email.com"
+                optional
+              />
             </div>
 
             {quoteResult && !quoteResult.ok ? (
-              <p className="rounded-2xl bg-red-50 p-3 text-sm text-red-700">
-                {quoteResult.message}
-              </p>
+              <p className="rounded-2xl bg-red-50 p-3 text-sm text-red-700">{quoteResult.message}</p>
             ) : null}
 
             <FieldError error={fieldErrors.legalConsent?.[0]}>
-              <label className="flex items-start gap-3 rounded-2xl border border-neutral-200 bg-neutral-50 p-3 text-sm leading-6 text-neutral-700">
+              <label className="flex cursor-pointer items-start gap-3 rounded-2xl border border-slate-200/80 bg-white p-3.5 text-[11px] leading-relaxed text-slate-600 shadow-sm">
                 <input
                   type="checkbox"
                   checked={legalConsent}
                   onChange={(event) => setLegalConsent(event.target.checked)}
-                  className="mt-1 h-4 w-4 shrink-0"
+                  className="mt-0.5 h-4 w-4 shrink-0 cursor-pointer rounded border-slate-300 text-[#F97316] focus:ring-[#F97316]/30"
                 />
                 <span>
                   I have read and agree to the{" "}
-                  <Link href="/terms" className="font-semibold text-neutral-950 underline">
-                    Terms & Conditions
+                  <Link href="/terms" className="font-bold text-[#0F172A] underline decoration-[#F97316] decoration-2">
+                    Terms &amp; Conditions
                   </Link>{" "}
                   and acknowledge the{" "}
-                  <Link href="/privacy" className="font-semibold text-neutral-950 underline">
+                  <Link href="/privacy" className="font-bold text-[#0F172A] underline decoration-[#F97316] decoration-2">
                     Privacy Notice
                   </Link>
                   .
@@ -664,14 +730,19 @@ export function BookingFlow({ options, status, initialServiceIds }: BookingFlowP
               </label>
             </FieldError>
 
-            <Button
-              className="h-12 w-full bg-amber-400 text-black hover:bg-amber-300 sm:w-auto"
-              onClick={reviewEstimate}
-              disabled={isPending || dateAvailability?.is_available === false || !legalConsent}
-            >
-              {isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <CalendarCheck className="h-4 w-4" />}
-              Review estimate
-            </Button>
+            <div className="pt-2">
+              <Button
+                className="h-auto w-full rounded-2xl bg-[#F97316] px-6 py-4 text-sm font-bold tracking-wide text-white shadow-[0_8px_24px_-4px_rgba(249,115,22,0.35)] hover:bg-[#EA580C] active:scale-[0.98]"
+                onClick={reviewEstimate}
+                disabled={isPending || dateAvailability?.is_available === false || !legalConsent}
+              >
+                {isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <CalendarCheck className="h-4 w-4" />}
+                Review Estimate
+              </Button>
+              <p className="mt-2 text-center text-[10px] text-slate-400">
+                No upfront payment required to review your setup.
+              </p>
+            </div>
           </div>
         ) : (
           <Checkout
@@ -718,6 +789,8 @@ function TextField({
   error,
   type = "text",
   inputMode,
+  placeholder,
+  optional = false,
 }: {
   label: string;
   value: string;
@@ -725,16 +798,22 @@ function TextField({
   error?: string;
   type?: string;
   inputMode?: React.HTMLAttributes<HTMLInputElement>["inputMode"];
+  placeholder?: string;
+  optional?: boolean;
 }) {
   return (
     <FieldError error={error}>
-      <Label>{label}</Label>
+      <div className="mb-1 flex items-center justify-between gap-3">
+        <Label className="block text-[11px] font-semibold text-slate-500">{label}</Label>
+        {optional ? <span className="text-[10px] font-normal text-slate-400">Optional</span> : null}
+      </div>
       <Input
         type={type}
         inputMode={inputMode}
+        placeholder={placeholder}
         value={value}
         onChange={(event) => onChange(event.target.value)}
-        className="h-12 border-neutral-300 bg-white text-neutral-950 placeholder:text-neutral-400"
+        className="h-auto rounded-xl border-slate-200 bg-white px-3.5 py-3 text-xs font-semibold text-[#0F172A] shadow-sm placeholder:text-slate-300 focus:border-[#F97316] focus:ring-2 focus:ring-[#F97316]/20"
       />
     </FieldError>
   );

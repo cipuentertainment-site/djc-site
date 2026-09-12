@@ -2,10 +2,8 @@ import { NextResponse } from "next/server";
 
 import {
   createBookingFromPayload,
-  type ValidatedBookingPayload,
   validateBookingForManualSubmission,
 } from "@/lib/payments/booking-payload";
-import { createSupabaseAdminClient } from "@/lib/supabase/admin-server";
 
 type RateLimitBucket = {
   count: number;
@@ -46,32 +44,6 @@ function checkRateLimit(key: string) {
   return true;
 }
 
-async function hasRecentDuplicate(
-  payload: ValidatedBookingPayload["bookingPayload"],
-) {
-  const supabase = createSupabaseAdminClient();
-
-  if (!supabase) {
-    return { ok: false, message: "Booking server is not configured." };
-  }
-
-  const since = new Date(Date.now() - 10 * 60 * 1000).toISOString();
-  const duplicate = await supabase
-    .from("bookings")
-    .select("id")
-    .eq("customer_phone", payload.customerPhone)
-    .eq("event_date", payload.eventDate)
-    .eq("event_type_id", payload.eventTypeId)
-    .gte("created_at", since)
-    .limit(1);
-
-  if (duplicate.error) {
-    return { ok: false, message: "Could not verify recent submissions." };
-  }
-
-  return { ok: true, duplicate: Boolean(duplicate.data?.length) };
-}
-
 export async function POST(request: Request) {
   const ip = getClientIp(request);
 
@@ -107,31 +79,19 @@ export async function POST(request: Request) {
     );
   }
 
-  const duplicate = await hasRecentDuplicate(validated.data.bookingPayload);
-
-  if (!duplicate.ok) {
-    return NextResponse.json(
-      { ok: false, message: duplicate.message },
-      { status: 500 },
-    );
-  }
-
-  if (duplicate.duplicate) {
-    return NextResponse.json(
-      {
-        ok: false,
-        message:
-          "This booking request was already submitted recently. Please wait before sending it again.",
-      },
-      { status: 409 },
-    );
-  }
-
   const created = await createBookingFromPayload(validated.data.bookingPayload, {
     reservationFeePaymentStatus: "pending",
+    rejectRecentDuplicate: true,
   });
 
   if (!created.ok) {
+    if ("duplicate" in created && created.duplicate) {
+      return NextResponse.json(
+        { ok: false, message: created.message },
+        { status: 409 },
+      );
+    }
+
     return NextResponse.json(
       { ok: false, message: "Could not submit the booking request." },
       { status: 500 },

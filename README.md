@@ -88,13 +88,13 @@ supabase/
 
 ## Supabase Setup
 
-Run the migration in `supabase/migrations/202607300001_initial_business_schema.sql` against the Supabase project.
+Apply every file in `supabase/migrations/` in filename order. With the Supabase CLI linked to the target project, run:
 
-Then run:
+```bash
+supabase db push
+```
 
-- `supabase/migrations/202607300002_admin_mvp_extensions.sql`
-- `supabase/migrations/202607300003_admin_authentication.sql`
-- `supabase/migrations/202607310001_mpesa_service_images.sql`
+The migration directory currently includes the initial schema, admin authentication, booking consent, booking duration, media, merchandise, and atomic booking-creation migrations. Do not deploy application code that depends on a new migration until `supabase db push` has completed successfully against the production project.
 
 The migration creates:
 

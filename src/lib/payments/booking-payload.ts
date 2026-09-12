@@ -236,6 +236,7 @@ export async function createBookingFromPayload(
     reservationFeePaymentStatus: "pending" | "paid" | "failed" | "refunded";
     reservationFeePaymentReference?: string | null;
     reservationFeePaidAt?: string | null;
+    rejectRecentDuplicate?: boolean;
   },
 ) {
   const supabase = createSupabaseAdminClient();
@@ -244,57 +245,35 @@ export async function createBookingFromPayload(
     return { ok: false, message: "Server Supabase configuration is incomplete." };
   }
 
-  const booking = await supabase
-    .from("bookings")
-    .insert({
-      event_type_id: payload.eventTypeId,
-      event_type_name_snapshot: payload.eventTypeName,
-      event_type_size_id: payload.eventSizeId,
-      event_size_label_snapshot: payload.eventSizeLabel,
-      event_size_min_attendees_snapshot: payload.eventSizeMin,
-      event_size_max_attendees_snapshot: payload.eventSizeMax,
-      duration: payload.duration ?? "full_day",
-      attendee_count: payload.eventSizeMin,
-      event_date: payload.eventDate,
-      county: payload.county,
-      location_text: `${payload.townCentre} - ${payload.exactLocation}`,
-      customer_name: payload.customerName,
-      customer_phone: payload.customerPhone,
-      estimated_service_total_amount: payload.estimatedServiceTotal,
-      currency: payload.currency,
-      transport_disclaimer_snapshot: payload.transportDisclaimer,
-      reservation_fee_amount: payload.reservationFeeAmount,
-      reservation_fee_payment_status: payment.reservationFeePaymentStatus,
-      reservation_fee_payment_reference: payment.reservationFeePaymentReference ?? null,
-      reservation_fee_paid_at: payment.reservationFeePaidAt ?? null,
-      terms_accepted_at: payload.termsAcceptedAt,
-      terms_version: payload.termsVersion,
-      privacy_notice_version: payload.privacyNoticeVersion,
-      status: "pending",
-      notes: payload.customerEmail ? `Customer email: ${payload.customerEmail}` : null,
-    })
-    .select("id")
-    .single();
+  const result = await supabase.rpc("create_booking_from_payload", {
+    p_payload: payload,
+    p_payment_status: payment.reservationFeePaymentStatus,
+    p_payment_reference: payment.reservationFeePaymentReference ?? null,
+    p_payment_paid_at: payment.reservationFeePaidAt ?? null,
+    p_reject_recent_duplicate: payment.rejectRecentDuplicate ?? false,
+  });
 
-  if (booking.error) {
-    return { ok: false, message: booking.error.message };
+  if (result.error || typeof result.data !== "string") {
+    const message = result.error?.message.toLowerCase() ?? "";
+
+    if (message.includes("recent booking request already submitted")) {
+      return {
+        ok: false,
+        duplicate: true,
+        message:
+          "This booking request was already submitted recently. Please wait before sending it again.",
+      };
+    }
+
+    console.error("Booking creation failed.", {
+      code: result.error?.code,
+      message: result.error?.message,
+    });
+
+    return { ok: false, message: "Could not create the booking record." };
   }
 
-  const serviceInsert = await supabase.from("booking_services").insert(
-    payload.services.map((service) => ({
-      booking_id: booking.data.id,
-      service_id: service.serviceId,
-      service_name_snapshot: service.serviceName,
-      price_amount_snapshot: service.priceAmount,
-      currency: service.currency,
-    })),
-  );
-
-  if (serviceInsert.error) {
-    return { ok: false, message: serviceInsert.error.message };
-  }
-
-  return { ok: true, bookingId: booking.data.id as string };
+  return { ok: true, bookingId: result.data };
 }
 
 export async function finalizeBookingFromPayment(paymentId: string) {
@@ -304,42 +283,13 @@ export async function finalizeBookingFromPayment(paymentId: string) {
     return { ok: false, message: "Server Supabase configuration is incomplete." };
   }
 
-  const payment = await supabase
-    .from("reservation_payments")
-    .select("id,booking_id,status,booking_payload,mpesa_receipt_number,paid_at")
-    .eq("id", paymentId)
-    .single();
+  const result = await supabase.rpc("finalize_booking_from_payment", {
+    p_payment_id: paymentId,
+  });
 
-  if (payment.error || !payment.data) {
-    return { ok: false, message: "Payment record not found." };
+  if (result.error || typeof result.data !== "string") {
+    return { ok: false, message: result.error?.message ?? "Payment finalization failed." };
   }
 
-  if (payment.data.booking_id) {
-    return { ok: true, bookingId: payment.data.booking_id as string };
-  }
-
-  if (payment.data.status !== "success") {
-    return { ok: false, message: "Payment is not successful." };
-  }
-
-  const created = await createBookingFromPayload(
-    payment.data.booking_payload as ValidatedBookingPayload["bookingPayload"],
-    {
-      reservationFeePaymentStatus: "paid",
-      reservationFeePaymentReference: payment.data.mpesa_receipt_number,
-      reservationFeePaidAt: payment.data.paid_at,
-    },
-  );
-
-  if (!created.ok) {
-    return created;
-  }
-
-  await supabase
-    .from("reservation_payments")
-    .update({ booking_id: created.bookingId })
-    .eq("id", paymentId)
-    .is("booking_id", null);
-
-  return { ok: true, bookingId: created.bookingId };
+  return { ok: true, bookingId: result.data };
 }
