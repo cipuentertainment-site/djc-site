@@ -1,7 +1,7 @@
 "use client";
 
 import type * as React from "react";
-import { useMemo, useState, useTransition } from "react";
+import { useEffect, useMemo, useState, useTransition } from "react";
 import { format } from "date-fns";
 import Link from "next/link";
 import {
@@ -74,6 +74,24 @@ type ManualSubmissionResponse = {
   message?: string;
 };
 
+const BOOKING_DRAFT_STORAGE_KEY = "djc-entertainment-booking-draft-v1";
+
+type BookingDraft = {
+  eventTypeId: string;
+  eventSizeId: string;
+  duration: BookingDuration;
+  serviceIds: string[];
+  eventDate: string;
+  county: string;
+  townCentre: string;
+  exactLocation: string;
+  customerName: string;
+  customerPhone: string;
+  customerEmail: string;
+  mpesaPhone: string;
+  legalConsent: boolean;
+};
+
 function createAttemptKey() {
   if (typeof crypto !== "undefined" && "randomUUID" in crypto) {
     return crypto.randomUUID();
@@ -92,8 +110,12 @@ function formatRemainingSlots(availability: DateAvailability) {
 }
 
 export function BookingFlow({ options, status, initialServiceIds }: BookingFlowProps) {
-  const validInitialIds = initialServiceIds.filter((id) =>
-    options.services.some((service) => service.id === id),
+  const validInitialIds = useMemo(
+    () =>
+      initialServiceIds.filter((id) =>
+        options.services.some((service) => service.id === id),
+      ),
+    [initialServiceIds, options.services],
   );
   const [step, setStep] = useState<"details" | "checkout">("details");
   const [eventTypeId, setEventTypeId] = useState("");
@@ -120,6 +142,7 @@ export function BookingFlow({ options, status, initialServiceIds }: BookingFlowP
   const [referenceId, setReferenceId] = useState<string | null>(null);
   const [paymentReceipt, setPaymentReceipt] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
+  const [draftLoaded, setDraftLoaded] = useState(false);
 
   const settings = options.settings;
   const selectedEventType = options.eventTypes.find((item) => item.id === eventTypeId);
@@ -151,6 +174,130 @@ export function BookingFlow({ options, status, initialServiceIds }: BookingFlowP
       serviceIds.includes(price.service_id) &&
       price.duration === activeDuration,
   );
+
+  useEffect(() => {
+    const restoreDraft = () => {
+      let storedDraft: Partial<BookingDraft> | null = null;
+
+      try {
+        const rawDraft = window.localStorage.getItem(BOOKING_DRAFT_STORAGE_KEY);
+        storedDraft = rawDraft ? (JSON.parse(rawDraft) as Partial<BookingDraft>) : null;
+      } catch {
+        storedDraft = null;
+      }
+
+      if (storedDraft) {
+      const restoredEventTypeId =
+        typeof storedDraft.eventTypeId === "string" &&
+        options.eventTypes.some((eventType) => eventType.id === storedDraft?.eventTypeId)
+          ? storedDraft.eventTypeId
+          : "";
+      const restoredEventType = options.eventTypes.find(
+        (eventType) => eventType.id === restoredEventTypeId,
+      );
+      const restoredEventSizeId =
+        typeof storedDraft.eventSizeId === "string" &&
+        options.eventTypeSizes.some(
+          (size) =>
+            size.id === storedDraft?.eventSizeId &&
+            size.event_type_id === restoredEventTypeId,
+        )
+          ? storedDraft.eventSizeId
+          : "";
+      const storedServiceIds = Array.isArray(storedDraft.serviceIds)
+        ? storedDraft.serviceIds.filter((id): id is string => typeof id === "string")
+        : [];
+      const allowedServiceIds = new Set(
+        options.eventTypeServices
+          .filter((item) => item.event_type_id === restoredEventTypeId)
+          .map((item) => item.service_id),
+      );
+      const restoredServiceIds = options.services
+        .filter(
+          (service) =>
+            storedServiceIds.includes(service.id) &&
+            (!restoredEventTypeId || allowedServiceIds.has(service.id)),
+        )
+        .map((service) => service.id);
+      const restoredDuration: BookingDuration =
+        restoredEventType?.supports_half_day && storedDraft.duration === "half_day"
+          ? "half_day"
+          : "full_day";
+
+      setEventTypeId(restoredEventTypeId);
+      setEventSizeId(restoredEventSizeId);
+      setDuration(restoredDuration);
+      setServiceIds(initialServiceIds.length ? validInitialIds : restoredServiceIds);
+      setEventDate(typeof storedDraft.eventDate === "string" ? storedDraft.eventDate : "");
+      setCounty(typeof storedDraft.county === "string" ? storedDraft.county : "");
+      setTownCentre(typeof storedDraft.townCentre === "string" ? storedDraft.townCentre : "");
+      setExactLocation(
+        typeof storedDraft.exactLocation === "string" ? storedDraft.exactLocation : "",
+      );
+      setCustomerName(
+        typeof storedDraft.customerName === "string" ? storedDraft.customerName : "",
+      );
+      setCustomerPhone(
+        typeof storedDraft.customerPhone === "string" ? storedDraft.customerPhone : "",
+      );
+      setCustomerEmail(
+        typeof storedDraft.customerEmail === "string" ? storedDraft.customerEmail : "",
+      );
+      setMpesaPhone(
+        typeof storedDraft.mpesaPhone === "string" ? storedDraft.mpesaPhone : "",
+      );
+      setLegalConsent(storedDraft.legalConsent === true);
+      }
+
+      setDraftLoaded(true);
+    };
+
+    const timeoutId = window.setTimeout(restoreDraft, 0);
+    return () => window.clearTimeout(timeoutId);
+  }, [initialServiceIds, options, validInitialIds]);
+
+  useEffect(() => {
+    if (!draftLoaded) {
+      return;
+    }
+
+    const draft: BookingDraft = {
+      eventTypeId,
+      eventSizeId,
+      duration,
+      serviceIds,
+      eventDate,
+      county,
+      townCentre,
+      exactLocation,
+      customerName,
+      customerPhone,
+      customerEmail,
+      mpesaPhone,
+      legalConsent,
+    };
+
+    try {
+      window.localStorage.setItem(BOOKING_DRAFT_STORAGE_KEY, JSON.stringify(draft));
+    } catch {
+      // Browser storage can be unavailable in private or restricted browsing modes.
+    }
+  }, [
+    draftLoaded,
+    eventTypeId,
+    eventSizeId,
+    duration,
+    serviceIds,
+    eventDate,
+    county,
+    townCentre,
+    exactLocation,
+    customerName,
+    customerPhone,
+    customerEmail,
+    mpesaPhone,
+    legalConsent,
+  ]);
 
   function resetPayment() {
     setPaymentState("idle");
