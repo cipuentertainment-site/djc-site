@@ -7,7 +7,10 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { cn } from "@/lib/utils";
-import type { MerchandiseProduct } from "@/types/merchandise-media";
+import {
+  MERCHANDISE_SIZE_OPTIONS,
+  type MerchandiseProduct,
+} from "@/types/merchandise-media";
 
 type MerchandiseRequestFormProps = {
   product: MerchandiseProduct;
@@ -30,6 +33,9 @@ export function MerchandiseRequestForm({
     product.available_colours[0] ?? "",
   );
   const selectedColour = controlledSelectedColour ?? internalSelectedColour;
+  const [selectedSize, setSelectedSize] = useState<string>(
+    product.available_sizes[0] ?? "",
+  );
   const [quantity, setQuantity] = useState("1");
   const [customerName, setCustomerName] = useState("");
   const [customerPhone, setCustomerPhone] = useState("");
@@ -41,6 +47,10 @@ export function MerchandiseRequestForm({
   function chooseColour(colour: string) {
     setInternalSelectedColour(colour);
     onSelectedColourChange?.(colour);
+  }
+
+  function chooseSize(size: string) {
+    setSelectedSize(size);
   }
 
   function submit() {
@@ -56,6 +66,7 @@ export function MerchandiseRequestForm({
         body: JSON.stringify({
           productId: product.id,
           selectedColour,
+          selectedSize,
           quantity,
           customerName,
           customerPhone,
@@ -112,6 +123,37 @@ export function MerchandiseRequestForm({
           </div>
           {fieldErrors.selectedColour?.[0] ? (
             <p className="text-xs text-red-600">{fieldErrors.selectedColour[0]}</p>
+          ) : null}
+        </div>
+      ) : null}
+
+      {product.available_sizes.length ? (
+        <div className="space-y-2">
+          <Label>Size</Label>
+          <div className="flex flex-wrap gap-2">
+            {product.available_sizes.map((size) => {
+              const label =
+                MERCHANDISE_SIZE_OPTIONS.find((option) => option.value === size)?.label ?? size;
+
+              return (
+                <button
+                  key={size}
+                  type="button"
+                  onClick={() => chooseSize(size)}
+                  className={cn(
+                    "h-10 rounded-full border px-4 text-sm font-bold transition",
+                    selectedSize === size
+                      ? "border-neutral-950 bg-neutral-950 text-white"
+                      : "border-neutral-300 bg-white text-neutral-700 hover:border-neutral-950",
+                  )}
+                >
+                  {label}
+                </button>
+              );
+            })}
+          </div>
+          {fieldErrors.selectedSize?.[0] ? (
+            <p className="text-xs text-red-600">{fieldErrors.selectedSize[0]}</p>
           ) : null}
         </div>
       ) : null}

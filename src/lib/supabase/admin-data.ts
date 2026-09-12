@@ -530,12 +530,12 @@ export async function getAdminMerchandiseMediaData(): Promise<
       .order("created_at", { ascending: false }),
     client.supabase
       .from("merchandise_products")
-      .select("id,name,slug,description,price_amount,currency,image_path,available_colours,is_active,sort_order,created_at,updated_at")
+      .select("id,name,slug,description,price_amount,currency,image_path,available_colours,available_sizes,is_active,sort_order,created_at,updated_at")
       .order("sort_order")
       .order("name"),
     client.supabase
       .from("merchandise_requests")
-      .select("id,product_id,product_name_snapshot,product_price_amount_snapshot,currency,selected_colour,quantity,customer_name,customer_phone,status,created_at,updated_at")
+      .select("id,product_id,product_name_snapshot,product_price_amount_snapshot,currency,selected_colour,selected_size,quantity,customer_name,customer_phone,status,created_at,updated_at")
       .order("created_at", { ascending: false })
       .limit(100),
   ]);

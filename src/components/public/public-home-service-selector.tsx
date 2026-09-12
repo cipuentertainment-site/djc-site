@@ -199,39 +199,40 @@ export function PublicHomeServiceSelector({
         </div>
 
         {status === "ready" && featuredServices.length ? (
-          <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
-            {featuredServices.map((service) => {
-              const selected = selectedServiceIds.includes(service.id);
+          <>
+            <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+              {featuredServices.map((service) => {
+                const selected = selectedServiceIds.includes(service.id);
 
-              return (
-                <button
-                  key={service.id}
-                  type="button"
-                  onClick={() => toggleService(service)}
-                  className={cn(
-                    "group relative h-36 overflow-hidden rounded-[1.1rem] bg-neutral-950 text-left transition duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-400 sm:h-48 sm:rounded-[1.35rem] lg:h-56",
-                    selected
-                      ? "shadow-[0_0_0_3px_rgba(251,191,36,0.95)]"
-                      : "hover:-translate-y-0.5 hover:shadow-xl hover:shadow-black/12",
-                  )}
-                  aria-pressed={selected}
-                >
-                  <ServiceImage
-                    imagePath={service.image_path}
-                    name={service.name}
-                    className="absolute inset-0 h-full w-full rounded-none"
-                  />
-                  <span className="absolute inset-0 bg-gradient-to-t from-black/92 via-black/48 to-black/0" />
-                  <span
+                return (
+                  <button
+                    key={service.id}
+                    type="button"
+                    onClick={() => toggleService(service)}
                     className={cn(
-                      "absolute right-3 top-3 flex h-8 w-8 items-center justify-center rounded-full border backdrop-blur",
+                      "group relative h-36 overflow-hidden rounded-[1.1rem] bg-neutral-950 text-left transition duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-400 sm:h-48 sm:rounded-[1.35rem] lg:h-56",
                       selected
-                        ? "border-amber-300 bg-amber-300 text-black"
-                        : "border-white/35 bg-black/20 text-transparent",
+                        ? "shadow-[0_0_0_3px_rgba(251,191,36,0.95)]"
+                        : "hover:-translate-y-0.5 hover:shadow-xl hover:shadow-black/12",
                     )}
+                    aria-pressed={selected}
                   >
-                    <Check className="h-4 w-4" aria-hidden="true" />
-                  </span>
+                    <ServiceImage
+                      imagePath={service.image_path}
+                      name={service.name}
+                      className="absolute inset-0 h-full w-full rounded-none"
+                    />
+                    <span className="absolute inset-0 bg-gradient-to-t from-black/92 via-black/48 to-black/0" />
+                    <span
+                      className={cn(
+                        "absolute right-3 top-3 flex h-8 w-8 items-center justify-center rounded-full border backdrop-blur",
+                        selected
+                          ? "border-amber-300 bg-amber-300 text-black"
+                          : "border-white/35 bg-black/20 text-transparent",
+                      )}
+                    >
+                      <Check className="h-4 w-4" aria-hidden="true" />
+                    </span>
                     <span className="absolute inset-x-0 bottom-0 p-3 text-white sm:p-4">
                       <span className="block text-base font-black leading-tight sm:text-xl">
                         {service.name}
@@ -240,10 +241,25 @@ export function PublicHomeServiceSelector({
                         {service.description ?? "Available for configured events."}
                       </span>
                     </span>
-                </button>
-              );
-            })}
-          </div>
+                  </button>
+                );
+              })}
+            </div>
+
+            {selectedServiceIds.length ? (
+              <div className="mt-5 flex justify-end">
+                <Button
+                  asChild
+                  className="h-12 w-full rounded-full bg-amber-400 px-5 text-sm font-black text-black hover:bg-amber-300 sm:w-auto"
+                >
+                  <Link href={bookHref}>
+                    Book an Event
+                    <ArrowRight className="h-4 w-4" />
+                  </Link>
+                </Button>
+              </div>
+            ) : null}
+          </>
         ) : (
           <div className="rounded-2xl bg-white p-4 text-sm text-neutral-600 ring-1 ring-black/10">
             {status === "not_configured"

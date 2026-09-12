@@ -1,6 +1,11 @@
 import { z } from "zod";
 
 import { KENYAN_COUNTIES } from "@/lib/counties";
+import { MERCHANDISE_SIZE_OPTIONS } from "@/types/merchandise-media";
+
+const merchandiseSizeSchema = z.enum(
+  MERCHANDISE_SIZE_OPTIONS.map((option) => option.value) as [string, ...string[]],
+);
 
 const sizeRangeSchema = z.object({
   label: z.enum(["small", "medium", "large"]),
@@ -108,6 +113,13 @@ export const merchandiseProductFormSchema = z.object({
   currency: z.string().trim().min(3).max(12),
   imagePath: z.string().trim().optional().nullable(),
   availableColours: z.array(z.string().trim().min(1).max(40)).default([]),
+  availableSizes: z
+    .array(merchandiseSizeSchema)
+    .default([])
+    .refine(
+      (sizes) => !sizes.includes("one_size_fits_all") || sizes.length === 1,
+      "One size fits all cannot be combined with other sizes.",
+    ),
   images: z
     .array(
       z.object({

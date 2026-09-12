@@ -143,7 +143,7 @@ export async function getPublicMediaContent(): Promise<PublicMediaContent> {
       .limit(4),
     supabase
       .from("merchandise_products")
-      .select("id,name,slug,description,price_amount,currency,image_path,available_colours,is_active,sort_order")
+      .select("id,name,slug,description,price_amount,currency,image_path,available_colours,available_sizes,is_active,sort_order")
       .eq("is_active", true)
       .order("sort_order")
       .order("name")
@@ -172,7 +172,7 @@ export async function getPublicMerchandiseProduct(
 
   const result = await supabase
     .from("merchandise_products")
-    .select("id,name,slug,description,price_amount,currency,image_path,available_colours,is_active,sort_order")
+    .select("id,name,slug,description,price_amount,currency,image_path,available_colours,available_sizes,is_active,sort_order")
     .eq("slug", slug)
     .eq("is_active", true)
     .maybeSingle();

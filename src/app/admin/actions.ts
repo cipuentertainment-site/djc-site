@@ -627,6 +627,7 @@ export async function saveMerchandiseProductAction(
     currency: parsed.data.currency.trim(),
     image_path: parsed.data.imagePath || null,
     available_colours: colours,
+    available_sizes: Array.from(new Set(parsed.data.availableSizes)),
     sort_order: parsed.data.sortOrder,
     is_active: parsed.data.isActive,
   };

@@ -11,6 +11,19 @@ export type PortfolioItem = {
   updated_at?: string;
 };
 
+export const MERCHANDISE_SIZE_OPTIONS = [
+  { value: "s", label: "S" },
+  { value: "m", label: "M" },
+  { value: "l", label: "L" },
+  { value: "xl", label: "XL" },
+  { value: "xxl", label: "XXL" },
+  { value: "xxxl", label: "XXXL" },
+  { value: "xxxxl", label: "XXXXL" },
+  { value: "one_size_fits_all", label: "One size fits all" },
+] as const;
+
+export type MerchandiseSize = (typeof MERCHANDISE_SIZE_OPTIONS)[number]["value"];
+
 export type MerchandiseProduct = {
   id: string;
   name: string;
@@ -20,6 +33,7 @@ export type MerchandiseProduct = {
   currency: string;
   image_path: string | null;
   available_colours: string[];
+  available_sizes: MerchandiseSize[];
   images?: MerchandiseProductImage[];
   is_active?: boolean;
   sort_order?: number;
@@ -47,6 +61,7 @@ export type MerchandiseRequest = {
   product_price_amount_snapshot: number;
   currency: string;
   selected_colour: string | null;
+  selected_size: MerchandiseSize | null;
   quantity: number;
   customer_name: string;
   customer_phone: string;

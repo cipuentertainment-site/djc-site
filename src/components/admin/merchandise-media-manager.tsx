@@ -46,6 +46,7 @@ import {
   merchandiseImagesBucket,
   portfolioImagesBucket,
 } from "@/lib/supabase/storage";
+import { MERCHANDISE_SIZE_OPTIONS } from "@/types/merchandise-media";
 import type { AdminMerchandiseMediaData } from "@/types/admin-data";
 import type {
   MerchandiseProduct,
@@ -239,6 +240,7 @@ function MerchandiseProductForm({
   const [currency, setCurrency] = useState(product?.currency ?? "KES");
   const [imagePath, setImagePath] = useState(product?.image_path ?? "");
   const [colours, setColours] = useState(product?.available_colours.join(", ") ?? "");
+  const [sizes, setSizes] = useState(product?.available_sizes ?? []);
   const [colourImagePaths, setColourImagePaths] = useState<Record<string, string>>(() => {
     const entries =
       product?.images?.map((image) => [image.colour, image.image_path] as const) ?? [];
@@ -272,6 +274,7 @@ function MerchandiseProductForm({
           currency,
           imagePath,
           availableColours,
+          availableSizes: sizes,
           images: availableColours.map((colour) => ({
             colour,
             imagePath: colourImagePaths[colour] ?? "",
@@ -289,6 +292,7 @@ function MerchandiseProductForm({
         setCurrency("KES");
         setImagePath("");
         setColours("");
+        setSizes([]);
         setColourImagePaths({});
         setSortOrder(String(nextSortOrder));
         setIsActive(true);
@@ -356,6 +360,47 @@ function MerchandiseProductForm({
             onChange={(event) => setColours(event.target.value)}
             placeholder="Black, White, Red"
           />
+        </div>
+        <div className="space-y-2">
+          <div>
+            <Label>Available sizes</Label>
+            <p className="mt-1 text-xs text-muted-foreground">
+              Select the sizes customers can request for this item.
+            </p>
+          </div>
+          <div className="flex flex-wrap gap-2">
+            {MERCHANDISE_SIZE_OPTIONS.map((option) => {
+              const selected = sizes.includes(option.value);
+
+              return (
+                <button
+                  key={option.value}
+                  type="button"
+                  aria-pressed={selected}
+                  onClick={() =>
+                    setSizes((current) =>
+                      selected
+                        ? current.filter((size) => size !== option.value)
+                        : option.value === "one_size_fits_all"
+                          ? [option.value]
+                          : [
+                              ...current.filter((size) => size !== "one_size_fits_all"),
+                              option.value,
+                            ],
+                    )
+                  }
+                  className={cn(
+                    "rounded-full border px-3 py-1.5 text-sm font-medium transition",
+                    selected
+                      ? "border-primary bg-primary text-primary-foreground"
+                      : "border-border bg-card hover:bg-muted",
+                  )}
+                >
+                  {option.label}
+                </button>
+              );
+            })}
+          </div>
         </div>
         <div className="space-y-2">
           <Label>Product image</Label>
@@ -470,6 +515,13 @@ function MerchandiseRequestsTable({ requests }: { requests: MerchandiseRequest[]
                   <div>Qty {request.quantity}</div>
                   <div className="text-xs text-muted-foreground">
                     {request.selected_colour ?? "No colour selected"}
+                  </div>
+                  <div className="text-xs text-muted-foreground">
+                    {request.selected_size
+                      ? request.selected_size === "one_size_fits_all"
+                        ? "One size fits all"
+                        : request.selected_size.toUpperCase()
+                      : "No size selected"}
                   </div>
                   <div className="text-xs text-muted-foreground">
                     {new Date(request.created_at).toLocaleString("en-KE")}

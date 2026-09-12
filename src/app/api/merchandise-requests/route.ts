@@ -89,7 +89,7 @@ export async function POST(request: Request) {
 
   const product = await supabase
     .from("merchandise_products")
-    .select("id,name,price_amount,currency,available_colours,is_active")
+    .select("id,name,price_amount,currency,available_colours,available_sizes,is_active")
     .eq("id", parsed.data.productId)
     .single();
 
@@ -102,10 +102,26 @@ export async function POST(request: Request) {
 
   const selectedColour = parsed.data.selectedColour?.trim() || null;
   const colours = (product.data.available_colours ?? []) as string[];
+  const selectedSize = parsed.data.selectedSize?.trim() || null;
+  const sizes = (product.data.available_sizes ?? []) as string[];
 
   if (colours.length && (!selectedColour || !colours.includes(selectedColour))) {
     return NextResponse.json(
       { ok: false, message: "Select an available colour." },
+      { status: 400 },
+    );
+  }
+
+  if (sizes.length && (!selectedSize || !sizes.includes(selectedSize))) {
+    return NextResponse.json(
+      { ok: false, message: "Select an available size." },
+      { status: 400 },
+    );
+  }
+
+  if (selectedSize && !sizes.includes(selectedSize)) {
+    return NextResponse.json(
+      { ok: false, message: "Select an available size." },
       { status: 400 },
     );
   }
@@ -141,6 +157,7 @@ export async function POST(request: Request) {
       product_price_amount_snapshot: product.data.price_amount,
       currency: product.data.currency,
       selected_colour: selectedColour,
+      selected_size: selectedSize,
       quantity: parsed.data.quantity,
       customer_name: parsed.data.customerName.trim(),
       customer_phone: phone,
