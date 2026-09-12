@@ -1,7 +1,7 @@
 "use client";
 
 import type * as React from "react";
-import { useEffect, useMemo, useState, useTransition } from "react";
+import { useEffect, useMemo, useRef, useState, useTransition } from "react";
 import { format } from "date-fns";
 import Link from "next/link";
 import {
@@ -75,6 +75,9 @@ type ManualSubmissionResponse = {
 };
 
 const BOOKING_DRAFT_STORAGE_KEY = "djc-entertainment-booking-draft-v1";
+const BOOKING_PROFILE_STORAGE_KEY = "djc-entertainment-booking-profile-v1";
+const BOOKING_RESTORE_INTENT_STORAGE_KEY = "djc-entertainment-booking-restore-intent-v1";
+const BOOKING_RESTORE_INTENT_MAX_AGE_MS = 15 * 60 * 1000;
 
 type BookingDraft = {
   eventTypeId: string;
@@ -92,6 +95,17 @@ type BookingDraft = {
   legalConsent: boolean;
 };
 
+type BookingProfile = Pick<
+  BookingDraft,
+  | "customerName"
+  | "customerPhone"
+  | "customerEmail"
+  | "mpesaPhone"
+  | "county"
+  | "townCentre"
+  | "exactLocation"
+>;
+
 function createAttemptKey() {
   if (typeof crypto !== "undefined" && "randomUUID" in crypto) {
     return crypto.randomUUID();
@@ -107,6 +121,15 @@ function formatRemainingSlots(availability: DateAvailability) {
   );
 
   return `${remaining} slot${remaining === 1 ? "" : "s"} remaining`;
+}
+
+function readBrowserJson<T>(key: string): Partial<T> | null {
+  try {
+    const raw = window.localStorage.getItem(key);
+    return raw ? (JSON.parse(raw) as Partial<T>) : null;
+  } catch {
+    return null;
+  }
 }
 
 export function BookingFlow({ options, status, initialServiceIds }: BookingFlowProps) {
@@ -143,6 +166,7 @@ export function BookingFlow({ options, status, initialServiceIds }: BookingFlowP
   const [paymentReceipt, setPaymentReceipt] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
   const [draftLoaded, setDraftLoaded] = useState(false);
+  const preserveFullDraftRef = useRef(false);
 
   const settings = options.settings;
   const selectedEventType = options.eventTypes.find((item) => item.id === eventTypeId);
@@ -177,77 +201,110 @@ export function BookingFlow({ options, status, initialServiceIds }: BookingFlowP
 
   useEffect(() => {
     const restoreDraft = () => {
-      let storedDraft: Partial<BookingDraft> | null = null;
+      const storedDraft = readBrowserJson<BookingDraft>(BOOKING_DRAFT_STORAGE_KEY);
+      const storedProfile = readBrowserJson<BookingProfile>(BOOKING_PROFILE_STORAGE_KEY);
+      const legacyProfile = storedProfile ?? storedDraft;
+      const restoreIntentTimestamp = Number(
+        window.localStorage.getItem(BOOKING_RESTORE_INTENT_STORAGE_KEY),
+      );
+      const restoreFullDraft =
+        Boolean(storedDraft) &&
+        Number.isFinite(restoreIntentTimestamp) &&
+        Date.now() - restoreIntentTimestamp <= BOOKING_RESTORE_INTENT_MAX_AGE_MS;
 
-      try {
-        const rawDraft = window.localStorage.getItem(BOOKING_DRAFT_STORAGE_KEY);
-        storedDraft = rawDraft ? (JSON.parse(rawDraft) as Partial<BookingDraft>) : null;
-      } catch {
-        storedDraft = null;
+      window.localStorage.removeItem(BOOKING_RESTORE_INTENT_STORAGE_KEY);
+      if (!restoreFullDraft) {
+        window.localStorage.removeItem(BOOKING_DRAFT_STORAGE_KEY);
       }
 
-      if (storedDraft) {
-      const restoredEventTypeId =
-        typeof storedDraft.eventTypeId === "string" &&
-        options.eventTypes.some((eventType) => eventType.id === storedDraft?.eventTypeId)
-          ? storedDraft.eventTypeId
-          : "";
-      const restoredEventType = options.eventTypes.find(
-        (eventType) => eventType.id === restoredEventTypeId,
-      );
-      const restoredEventSizeId =
-        typeof storedDraft.eventSizeId === "string" &&
-        options.eventTypeSizes.some(
-          (size) =>
-            size.id === storedDraft?.eventSizeId &&
-            size.event_type_id === restoredEventTypeId,
-        )
-          ? storedDraft.eventSizeId
-          : "";
-      const storedServiceIds = Array.isArray(storedDraft.serviceIds)
-        ? storedDraft.serviceIds.filter((id): id is string => typeof id === "string")
-        : [];
-      const allowedServiceIds = new Set(
-        options.eventTypeServices
-          .filter((item) => item.event_type_id === restoredEventTypeId)
-          .map((item) => item.service_id),
-      );
-      const restoredServiceIds = options.services
-        .filter(
-          (service) =>
-            storedServiceIds.includes(service.id) &&
-            (!restoredEventTypeId || allowedServiceIds.has(service.id)),
-        )
-        .map((service) => service.id);
-      const restoredDuration: BookingDuration =
-        restoredEventType?.supports_half_day && storedDraft.duration === "half_day"
-          ? "half_day"
-          : "full_day";
+      if (restoreFullDraft && storedDraft) {
+        const restoredEventTypeId =
+          typeof storedDraft.eventTypeId === "string" &&
+          options.eventTypes.some((eventType) => eventType.id === storedDraft?.eventTypeId)
+            ? storedDraft.eventTypeId
+            : "";
+        const restoredEventType = options.eventTypes.find(
+          (eventType) => eventType.id === restoredEventTypeId,
+        );
+        const restoredEventSizeId =
+          typeof storedDraft.eventSizeId === "string" &&
+          options.eventTypeSizes.some(
+            (size) =>
+              size.id === storedDraft?.eventSizeId &&
+              size.event_type_id === restoredEventTypeId,
+          )
+            ? storedDraft.eventSizeId
+            : "";
+        const storedServiceIds = Array.isArray(storedDraft.serviceIds)
+          ? storedDraft.serviceIds.filter((id): id is string => typeof id === "string")
+          : [];
+        const allowedServiceIds = new Set(
+          options.eventTypeServices
+            .filter((item) => item.event_type_id === restoredEventTypeId)
+            .map((item) => item.service_id),
+        );
+        const restoredServiceIds = options.services
+          .filter(
+            (service) =>
+              storedServiceIds.includes(service.id) &&
+              (!restoredEventTypeId || allowedServiceIds.has(service.id)),
+          )
+          .map((service) => service.id);
+        const restoredDuration: BookingDuration =
+          restoredEventType?.supports_half_day && storedDraft.duration === "half_day"
+            ? "half_day"
+            : "full_day";
 
-      setEventTypeId(restoredEventTypeId);
-      setEventSizeId(restoredEventSizeId);
-      setDuration(restoredDuration);
-      setServiceIds(initialServiceIds.length ? validInitialIds : restoredServiceIds);
-      setEventDate(typeof storedDraft.eventDate === "string" ? storedDraft.eventDate : "");
-      setCounty(typeof storedDraft.county === "string" ? storedDraft.county : "");
-      setTownCentre(typeof storedDraft.townCentre === "string" ? storedDraft.townCentre : "");
+        setEventTypeId(restoredEventTypeId);
+        setEventSizeId(restoredEventSizeId);
+        setDuration(restoredDuration);
+        setServiceIds(initialServiceIds.length ? validInitialIds : restoredServiceIds);
+        setEventDate(typeof storedDraft.eventDate === "string" ? storedDraft.eventDate : "");
+        setLegalConsent(storedDraft.legalConsent === true);
+      } else {
+        setEventTypeId("");
+        setEventSizeId("");
+        setDuration("full_day");
+        setServiceIds(validInitialIds);
+        setEventDate("");
+        setLegalConsent(false);
+      }
+
+      setCounty(typeof legacyProfile?.county === "string" ? legacyProfile.county : "");
+      setTownCentre(
+        typeof legacyProfile?.townCentre === "string" ? legacyProfile.townCentre : "",
+      );
       setExactLocation(
-        typeof storedDraft.exactLocation === "string" ? storedDraft.exactLocation : "",
+        typeof legacyProfile?.exactLocation === "string"
+          ? legacyProfile.exactLocation
+          : "",
       );
       setCustomerName(
-        typeof storedDraft.customerName === "string" ? storedDraft.customerName : "",
+        typeof legacyProfile?.customerName === "string" ? legacyProfile.customerName : "",
       );
       setCustomerPhone(
-        typeof storedDraft.customerPhone === "string" ? storedDraft.customerPhone : "",
+        typeof legacyProfile?.customerPhone === "string"
+          ? legacyProfile.customerPhone
+          : "",
       );
       setCustomerEmail(
-        typeof storedDraft.customerEmail === "string" ? storedDraft.customerEmail : "",
+        typeof legacyProfile?.customerEmail === "string"
+          ? legacyProfile.customerEmail
+          : "",
       );
       setMpesaPhone(
-        typeof storedDraft.mpesaPhone === "string" ? storedDraft.mpesaPhone : "",
+        typeof legacyProfile?.mpesaPhone === "string" ? legacyProfile.mpesaPhone : "",
       );
-      setLegalConsent(storedDraft.legalConsent === true);
-      }
+      setStep("details");
+      setDateAvailability(null);
+      setQuoteResult(null);
+      setFieldErrors({});
+      setPaymentState("idle");
+      setPaymentMessage("");
+      setBookingId(null);
+      setReferenceId(null);
+      setPaymentReceipt(null);
+      setAttemptKey(createAttemptKey());
 
       setDraftLoaded(true);
     };
@@ -282,6 +339,22 @@ export function BookingFlow({ options, status, initialServiceIds }: BookingFlowP
     } catch {
       // Browser storage can be unavailable in private or restricted browsing modes.
     }
+
+    const profile: BookingProfile = {
+      customerName,
+      customerPhone,
+      customerEmail,
+      mpesaPhone,
+      county,
+      townCentre,
+      exactLocation,
+    };
+
+    try {
+      window.localStorage.setItem(BOOKING_PROFILE_STORAGE_KEY, JSON.stringify(profile));
+    } catch {
+      // Browser storage can be unavailable in private or restricted browsing modes.
+    }
   }, [
     draftLoaded,
     eventTypeId,
@@ -298,6 +371,54 @@ export function BookingFlow({ options, status, initialServiceIds }: BookingFlowP
     mpesaPhone,
     legalConsent,
   ]);
+
+  useEffect(() => {
+    const clearFullFormState = () => {
+      window.localStorage.removeItem(BOOKING_DRAFT_STORAGE_KEY);
+      setStep("details");
+      setEventTypeId("");
+      setEventSizeId("");
+      setDuration("full_day");
+      setServiceIds([]);
+      setEventDate("");
+      setLegalConsent(false);
+      setDateAvailability(null);
+      setQuoteResult(null);
+      setFieldErrors({});
+      setPaymentState("idle");
+      setPaymentMessage("");
+      setBookingId(null);
+      setReferenceId(null);
+      setPaymentReceipt(null);
+      setAttemptKey(createAttemptKey());
+    };
+
+    const handlePageHide = (event: PageTransitionEvent) => {
+      if (event.persisted && !preserveFullDraftRef.current) {
+        clearFullFormState();
+      }
+    };
+
+    const handlePageShow = (event: PageTransitionEvent) => {
+      if (event.persisted && preserveFullDraftRef.current) {
+        preserveFullDraftRef.current = false;
+        window.localStorage.removeItem(BOOKING_RESTORE_INTENT_STORAGE_KEY);
+      }
+    };
+
+    window.addEventListener("pagehide", handlePageHide);
+    window.addEventListener("pageshow", handlePageShow);
+
+    return () => {
+      window.removeEventListener("pagehide", handlePageHide);
+      window.removeEventListener("pageshow", handlePageShow);
+
+      if (!preserveFullDraftRef.current) {
+        window.localStorage.removeItem(BOOKING_DRAFT_STORAGE_KEY);
+        window.localStorage.removeItem(BOOKING_RESTORE_INTENT_STORAGE_KEY);
+      }
+    };
+  }, []);
 
   function resetPayment() {
     setPaymentState("idle");
@@ -321,6 +442,19 @@ export function BookingFlow({ options, status, initialServiceIds }: BookingFlowP
     setQuoteResult(null);
     setStep("details");
     resetPayment();
+  }
+
+  function preserveDraftForLegalNavigation() {
+    preserveFullDraftRef.current = true;
+
+    try {
+      window.localStorage.setItem(
+        BOOKING_RESTORE_INTENT_STORAGE_KEY,
+        String(Date.now()),
+      );
+    } catch {
+      // Browser storage can be unavailable in private or restricted browsing modes.
+    }
   }
 
   function toggleService(serviceId: string) {
@@ -865,11 +999,19 @@ export function BookingFlow({ options, status, initialServiceIds }: BookingFlowP
                 />
                 <span>
                   I have read and agree to the{" "}
-                  <Link href="/terms" className="font-bold text-[#0F172A] underline decoration-[#F97316] decoration-2">
+                  <Link
+                    href="/terms"
+                    onClick={preserveDraftForLegalNavigation}
+                    className="font-bold text-[#0F172A] underline decoration-[#F97316] decoration-2"
+                  >
                     Terms &amp; Conditions
                   </Link>{" "}
                   and acknowledge the{" "}
-                  <Link href="/privacy" className="font-bold text-[#0F172A] underline decoration-[#F97316] decoration-2">
+                  <Link
+                    href="/privacy"
+                    onClick={preserveDraftForLegalNavigation}
+                    className="font-bold text-[#0F172A] underline decoration-[#F97316] decoration-2"
+                  >
                     Privacy Notice
                   </Link>
                   .

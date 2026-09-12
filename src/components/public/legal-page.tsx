@@ -1,5 +1,6 @@
 import Link from "next/link";
 
+import { ClearBookingRestoreIntentLink } from "@/components/public/clear-booking-restore-intent-link";
 import { PublicFooter } from "@/components/public/public-footer";
 import { Button } from "@/components/ui/button";
 import type { LegalDocument } from "@/lib/legal-documents";
@@ -21,7 +22,7 @@ export function LegalPage({ document, settings }: LegalPageProps) {
             {businessName}
           </Link>
           <Button asChild variant="outline" size="sm" className="border-neutral-300 bg-white/70">
-            <Link href="/">Home</Link>
+            <ClearBookingRestoreIntentLink href="/" />
           </Button>
         </header>
 
