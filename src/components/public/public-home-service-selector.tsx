@@ -3,12 +3,11 @@
 import Image from "next/image";
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
-import { ArrowRight, Check, Play } from "lucide-react";
+import { ArrowRight, Play } from "lucide-react";
 
 import { ServiceImage } from "@/components/public/service-image";
 import { Button } from "@/components/ui/button";
 import { getPortfolioImageUrl } from "@/lib/supabase/storage";
-import { cn } from "@/lib/utils";
 import type { BookingOptions, PublicService } from "@/types/booking";
 import type { PortfolioItem } from "@/types/merchandise-media";
 
@@ -25,7 +24,6 @@ export function PublicHomeServiceSelector({
   status,
   errorMessage,
 }: PublicHomeServiceSelectorProps) {
-  const [selectedServiceIds, setSelectedServiceIds] = useState<string[]>([]);
   const [activeSlideIndex, setActiveSlideIndex] = useState(0);
   const settings = options.settings;
   const businessName = settings?.business_name ?? "DJC Entertainment";
@@ -61,23 +59,7 @@ export function PublicHomeServiceSelector({
   const activeSlide = heroSlides[activeSlideIndex % Math.max(heroSlides.length, 1)];
   const [failedHeroImageUrl, setFailedHeroImageUrl] = useState<string | null>(null);
   const heroImageFailed = Boolean(activeSlide?.url && failedHeroImageUrl === activeSlide.url);
-  const bookHref = useMemo(() => {
-    const params = new URLSearchParams();
-
-    if (selectedServiceIds.length) {
-      params.set("services", selectedServiceIds.join(","));
-    }
-
-    return `/book${params.toString() ? `?${params.toString()}` : ""}`;
-  }, [selectedServiceIds]);
-
-  function toggleService(service: PublicService) {
-    setSelectedServiceIds((current) =>
-      current.includes(service.id)
-        ? current.filter((id) => id !== service.id)
-        : [...current, service.id],
-    );
-  }
+  const bookHref = "/book";
 
   useEffect(() => {
     if (heroSlides.length <= 1) {
@@ -164,8 +146,8 @@ export function PublicHomeServiceSelector({
 
         <div className="pt-4">
           <p className="max-w-xl text-sm font-semibold leading-6 text-neutral-600">
-            Select a service, press Book an Event, then fill in your details on the
-            next page.
+            Explore our services, then press Book an Event to fill in your details on
+            the next page.
           </p>
           <div className="mt-4">
             <Button
@@ -188,34 +170,19 @@ export function PublicHomeServiceSelector({
               Services
             </p>
             <h2 className="mt-1 text-2xl font-black sm:text-3xl">
-              What do you need?
+              main services we offer
             </h2>
           </div>
-          {selectedServiceIds.length ? (
-            <span className="rounded-full bg-neutral-950 px-3 py-1 text-xs font-bold text-white">
-              {selectedServiceIds.length} selected
-            </span>
-          ) : null}
         </div>
 
         {status === "ready" && featuredServices.length ? (
           <>
             <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
               {featuredServices.map((service) => {
-                const selected = selectedServiceIds.includes(service.id);
-
                 return (
-                  <button
+                  <div
                     key={service.id}
-                    type="button"
-                    onClick={() => toggleService(service)}
-                    className={cn(
-                      "group relative h-36 overflow-hidden rounded-[1.1rem] bg-neutral-950 text-left transition duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-400 sm:h-48 sm:rounded-[1.35rem] lg:h-56",
-                      selected
-                        ? "shadow-[0_0_0_3px_rgba(251,191,36,0.95)]"
-                        : "hover:-translate-y-0.5 hover:shadow-xl hover:shadow-black/12",
-                    )}
-                    aria-pressed={selected}
+                    className="relative h-36 overflow-hidden rounded-[1.1rem] bg-neutral-950 text-left sm:h-48 sm:rounded-[1.35rem] lg:h-56"
                   >
                     <ServiceImage
                       imagePath={service.image_path}
@@ -223,16 +190,6 @@ export function PublicHomeServiceSelector({
                       className="absolute inset-0 h-full w-full rounded-none"
                     />
                     <span className="absolute inset-0 bg-gradient-to-t from-black/92 via-black/48 to-black/0" />
-                    <span
-                      className={cn(
-                        "absolute right-3 top-3 flex h-8 w-8 items-center justify-center rounded-full border backdrop-blur",
-                        selected
-                          ? "border-amber-300 bg-amber-300 text-black"
-                          : "border-white/35 bg-black/20 text-transparent",
-                      )}
-                    >
-                      <Check className="h-4 w-4" aria-hidden="true" />
-                    </span>
                     <span className="absolute inset-x-0 bottom-0 p-3 text-white sm:p-4">
                       <span className="block text-base font-black leading-tight sm:text-xl">
                         {service.name}
@@ -241,24 +198,10 @@ export function PublicHomeServiceSelector({
                         {service.description ?? "Available for configured events."}
                       </span>
                     </span>
-                  </button>
+                  </div>
                 );
               })}
             </div>
-
-            {selectedServiceIds.length ? (
-              <div className="mt-5 flex justify-end">
-                <Button
-                  asChild
-                  className="h-12 w-full rounded-full bg-amber-400 px-5 text-sm font-black text-black hover:bg-amber-300 sm:w-auto"
-                >
-                  <Link href={bookHref}>
-                    Book an Event
-                    <ArrowRight className="h-4 w-4" />
-                  </Link>
-                </Button>
-              </div>
-            ) : null}
           </>
         ) : (
           <div className="rounded-2xl bg-white p-4 text-sm text-neutral-600 ring-1 ring-black/10">

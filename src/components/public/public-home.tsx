@@ -36,6 +36,24 @@ export function PublicHome({ options, media, status, errorMessage }: PublicHomeP
           errorMessage={errorMessage}
         />
 
+        {media.merchandiseProducts.length ? (
+          <section className="border-t border-black/10 py-7 sm:py-9">
+            <div className="mb-4">
+              <p className="text-xs font-black uppercase tracking-[0.18em] text-amber-700">
+                Merchandise
+              </p>
+              <h2 className="mt-1 text-2xl font-black sm:text-3xl">
+                DJC Merchandise
+              </h2>
+            </div>
+            <div className="grid grid-cols-2 gap-x-3 gap-y-6 sm:grid-cols-3 lg:grid-cols-4">
+              {media.merchandiseProducts.map((product) => (
+                <MerchandiseTile key={product.id} product={product} />
+              ))}
+            </div>
+          </section>
+        ) : null}
+
         {media.portfolioItems.length ? (
           <section className="border-t border-black/10 py-7 sm:py-9">
             <div className="mb-4 flex items-end justify-between gap-4">
@@ -51,24 +69,6 @@ export function PublicHome({ options, media, status, errorMessage }: PublicHomeP
             <div className="-mx-4 flex snap-x gap-3 overflow-x-auto px-4 pb-2 sm:mx-0 sm:grid sm:grid-cols-2 sm:overflow-visible sm:px-0 lg:grid-cols-4">
               {media.portfolioItems.slice(0, 4).map((item) => (
                 <PortfolioTile key={item.id} item={item} />
-              ))}
-            </div>
-          </section>
-        ) : null}
-
-        {media.merchandiseProducts.length ? (
-          <section className="border-t border-black/10 py-7 sm:py-9">
-            <div className="mb-4">
-              <p className="text-xs font-black uppercase tracking-[0.18em] text-amber-700">
-                Merchandise
-              </p>
-              <h2 className="mt-1 text-2xl font-black sm:text-3xl">
-                DJC Merchandise
-              </h2>
-            </div>
-            <div className="grid grid-cols-2 gap-x-3 gap-y-6 sm:grid-cols-3 lg:grid-cols-4">
-              {media.merchandiseProducts.map((product) => (
-                <MerchandiseTile key={product.id} product={product} />
               ))}
             </div>
           </section>
