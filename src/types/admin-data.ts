@@ -74,6 +74,7 @@ export type DashboardData = {
     rejected: number;
     upcoming: number;
     today: number;
+    websiteVisitors: number;
   };
   recentBookings: AdminBookingListItem[];
   bookingsOverTime: DashboardChartPoint[];

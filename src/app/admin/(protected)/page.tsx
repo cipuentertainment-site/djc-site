@@ -37,6 +37,7 @@ export default async function AdminDashboardPage({
     ["Rejected Bookings", data.stats.rejected],
     ["Upcoming Events", data.stats.upcoming],
     ["Today's Events", data.stats.today],
+    ["Website Visitors", data.stats.websiteVisitors],
   ];
 
   return (
@@ -75,7 +76,7 @@ export default async function AdminDashboardPage({
         />
       ) : null}
 
-      <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-6">
+      <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-7">
         {stats.map(([label, value]) => (
           <Card key={label}>
             <CardHeader className="p-4">

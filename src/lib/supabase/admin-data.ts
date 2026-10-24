@@ -82,6 +82,7 @@ const emptyDashboard: DashboardData = {
     rejected: 0,
     upcoming: 0,
     today: 0,
+    websiteVisitors: 0,
   },
   recentBookings: [],
   bookingsOverTime: [],
@@ -228,6 +229,7 @@ export async function getAdminDashboardData(
     recentBookings,
     chartBookings,
     serviceRows,
+    websiteVisitors,
   ] = await Promise.all([
     supabase.from("bookings").select("id", { count: "exact", head: true }).eq("status", "pending"),
     supabase.from("bookings").select("id", { count: "exact", head: true }).eq("status", "confirmed"),
@@ -259,6 +261,7 @@ export async function getAdminDashboardData(
       .select("service_name_snapshot,created_at")
       .gte("created_at", `${rangeStart}T00:00:00`)
       .limit(500),
+    supabase.from("website_visitors").select("visitor_id", { count: "exact", head: true }),
   ]);
 
   const firstError =
@@ -325,6 +328,7 @@ export async function getAdminDashboardData(
       rejected: rejected.count ?? 0,
       upcoming: upcoming.count ?? 0,
       today: todaysEvents.count ?? 0,
+      websiteVisitors: websiteVisitors.count ?? 0,
     },
     recentBookings:
       (recentBookings.data as AdminBookingListItem[] | null) ?? [],

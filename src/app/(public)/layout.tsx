@@ -1,3 +1,5 @@
+import { VisitorTracker } from "@/components/public/visitor-tracker";
+
 export const dynamic = "force-dynamic";
 
 export default function PublicLayout({
@@ -5,5 +7,10 @@ export default function PublicLayout({
 }: Readonly<{
   children: React.ReactNode;
 }>) {
-  return children;
+  return (
+    <>
+      <VisitorTracker />
+      {children}
+    </>
+  );
 }
