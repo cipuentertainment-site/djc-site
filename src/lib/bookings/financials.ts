@@ -4,6 +4,15 @@ export type PaymentLike = {
   amount: number;
 };
 
+export type FinalServiceLike = {
+  quantity: number;
+  unitPrice: number;
+};
+
+export function calculateFinalDetailsTotal(lines: FinalServiceLike[]) {
+  return lines.reduce((total, line) => total + line.quantity * line.unitPrice, 0);
+}
+
 export type BookingFinancialSummary = {
   agreedTotal: number | null;
   requiredDeposit: number | null;

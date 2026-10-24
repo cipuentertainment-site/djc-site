@@ -37,8 +37,12 @@ export type BookingDocumentBooking = {
   transport_disclaimer_snapshot: string;
   agreed_total_amount: number;
   booking_services: Array<{
+    service_id: string | null;
     service_name_snapshot: string;
+    description_snapshot: string | null;
+    quantity: number;
     price_amount_snapshot: number;
+    line_total_amount: number;
     currency: string;
   }>;
 };
@@ -358,6 +362,8 @@ function drawInfoGrid(context: DrawingContext, fonts: Fonts, booking: BookingDoc
 function drawServices(context: DrawingContext, fonts: Fonts, booking: BookingDocumentBooking) {
   drawSectionTitle(context, "Agreed services", fonts);
   const tableTop = context.y;
+  const quantityX = MARGIN + 300;
+  const unitPriceX = MARGIN + 405;
   const amountX = PAGE_WIDTH - MARGIN;
   context.page.drawRectangle({
     x: MARGIN,
@@ -367,7 +373,9 @@ function drawServices(context: DrawingContext, fonts: Fonts, booking: BookingDoc
     color: PALE_GOLD,
   });
   context.page.drawText("SERVICE", { x: MARGIN + 10, y: tableTop - 13, size: 8, font: fonts.bold, color: MUTED });
-  drawRightText(context.page, "AMOUNT", amountX - 10, tableTop - 13, fonts.bold, 8, MUTED);
+  drawRightText(context.page, "QTY", quantityX, tableTop - 13, fonts.bold, 8, MUTED);
+  drawRightText(context.page, "UNIT", unitPriceX, tableTop - 13, fonts.bold, 8, MUTED);
+  drawRightText(context.page, "LINE TOTAL", amountX - 10, tableTop - 13, fonts.bold, 8, MUTED);
   context.y = tableTop - 40;
 
   if (!booking.booking_services.length) {
@@ -377,7 +385,10 @@ function drawServices(context: DrawingContext, fonts: Fonts, booking: BookingDoc
   }
 
   booking.booking_services.forEach((service, index) => {
-    const serviceLines = wrapText(service.service_name_snapshot, fonts.regular, 9, CONTENT_WIDTH - 130);
+    const serviceLabel = service.description_snapshot
+      ? `${service.service_name_snapshot} - ${service.description_snapshot}`
+      : service.service_name_snapshot;
+    const serviceLines = wrapText(serviceLabel, fonts.regular, 9, 245);
     const rowHeight = Math.max(23, serviceLines.length * 11 + 12);
     if (index % 2 === 1) {
       context.page.drawRectangle({ x: MARGIN, y: context.y - 7, width: CONTENT_WIDTH, height: rowHeight, color: PALE_GRAY });
@@ -385,7 +396,9 @@ function drawServices(context: DrawingContext, fonts: Fonts, booking: BookingDoc
     serviceLines.forEach((line, lineIndex) => {
       context.page.drawText(line, { x: MARGIN + 10, y: context.y - lineIndex * 11, size: 9, font: fonts.regular, color: BLACK });
     });
-    drawRightText(context.page, money(service.price_amount_snapshot, service.currency), amountX - 10, context.y, fonts.bold, 9);
+    drawRightText(context.page, String(service.quantity), quantityX, context.y, fonts.bold, 9);
+    drawRightText(context.page, money(service.price_amount_snapshot, service.currency), unitPriceX, context.y, fonts.regular, 8.5);
+    drawRightText(context.page, money(service.line_total_amount, service.currency), amountX - 10, context.y, fonts.bold, 9);
     context.y -= rowHeight;
   });
   drawRule(context.page, context.y + 7);

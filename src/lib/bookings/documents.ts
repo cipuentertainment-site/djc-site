@@ -19,12 +19,16 @@ type BookingDocumentContext = {
   payments: BookingDocumentPayment[];
   financials: BookingDocumentFinancials;
   business: BookingDocumentBusiness;
+  agreementId: string | null;
+  agreementVersion: number | null;
 };
 
 type DocumentSpec = {
   documentType: BookingDocumentType;
   generationKey: string;
   paymentId?: string;
+  agreementId?: string | null;
+  agreementVersion?: number | null;
 };
 
 export type GeneratedBookingDocument = {
@@ -40,7 +44,7 @@ export type DocumentGenerationResult = {
 };
 
 const bookingDocumentSelect =
-  "id,booking_id,payment_id,document_type,document_number,generation_key,status,issue_date,storage_path,error_message,created_at";
+  "id,booking_id,payment_id,agreement_id,agreement_version,document_type,document_number,generation_key,status,issue_date,storage_path,error_message,created_at";
 
 function getNairobiDate() {
   return new Intl.DateTimeFormat("en-CA", {
@@ -65,11 +69,11 @@ async function loadBookingDocumentContext(
   supabase: AdminSupabaseClient,
   bookingId: string,
 ): Promise<BookingDocumentContext> {
-  const [bookingResult, paymentsResult, settingsResult] = await Promise.all([
+  const [bookingResult, paymentsResult, settingsResult, agreementResult] = await Promise.all([
     supabase
       .from("bookings")
       .select(
-        "booking_reference,customer_name,customer_phone,event_type_name_snapshot,event_size_label_snapshot,duration,attendee_count,event_date,county,location_text,notes,currency,transport_disclaimer_snapshot,agreed_total_amount,booking_services(service_name_snapshot,price_amount_snapshot,currency)",
+        "booking_reference,customer_name,customer_phone,event_type_name_snapshot,event_size_label_snapshot,duration,attendee_count,event_date,county,location_text,notes,currency,transport_disclaimer_snapshot,agreed_total_amount,booking_services(service_id,service_name_snapshot,price_amount_snapshot,currency)",
       )
       .eq("id", bookingId)
       .single(),
@@ -83,9 +87,15 @@ async function loadBookingDocumentContext(
       .select("business_name,business_phone,business_whatsapp,business_email,business_location,business_description")
       .eq("id", "default")
       .maybeSingle(),
+    supabase
+      .from("booking_final_agreements")
+      .select("id,version,agreed_total_amount")
+      .eq("booking_id", bookingId)
+      .eq("is_current", true)
+      .maybeSingle(),
   ]);
 
-  const error = bookingResult.error ?? paymentsResult.error ?? settingsResult.error;
+  const error = bookingResult.error ?? paymentsResult.error ?? settingsResult.error ?? agreementResult.error;
 
   if (error || !bookingResult.data) {
     throw new Error(error?.message ?? "Booking could not be loaded for document generation.");
@@ -95,12 +105,46 @@ async function loadBookingDocumentContext(
     agreed_total_amount: number | null;
   };
 
-  if (booking.agreed_total_amount === null || booking.agreed_total_amount <= 0) {
+  let bookingServices = booking.booking_services.map((service) => ({
+    service_id: service.service_id ?? null,
+    service_name_snapshot: service.service_name_snapshot,
+    description_snapshot: null,
+    quantity: 1,
+    price_amount_snapshot: service.price_amount_snapshot,
+    line_total_amount: service.price_amount_snapshot,
+    currency: service.currency,
+  }));
+
+  if (agreementResult.data) {
+    const finalServicesResult = await supabase
+      .from("booking_final_services")
+      .select("service_id,service_name_snapshot,description_snapshot,quantity,unit_price_amount,line_total_amount,currency,sort_order")
+      .eq("agreement_id", agreementResult.data.id)
+      .order("sort_order", { ascending: true });
+
+    if (finalServicesResult.error) {
+      throw new Error(finalServicesResult.error.message);
+    }
+
+    bookingServices = (finalServicesResult.data ?? []).map((service) => ({
+      service_id: service.service_id,
+      service_name_snapshot: service.service_name_snapshot,
+      description_snapshot: service.description_snapshot,
+      quantity: service.quantity,
+      price_amount_snapshot: service.unit_price_amount,
+      line_total_amount: service.line_total_amount,
+      currency: service.currency,
+    }));
+  }
+
+  const agreedTotal = agreementResult.data?.agreed_total_amount ?? booking.agreed_total_amount;
+
+  if (agreedTotal === null || agreedTotal <= 0) {
     throw new Error("The agreed total must be set before documents can be generated.");
   }
 
   const payments = (paymentsResult.data ?? []) as BookingDocumentPayment[];
-  const summary = calculateBookingFinancials(booking.agreed_total_amount, payments);
+  const summary = calculateBookingFinancials(agreedTotal, payments);
 
   if (
     summary.requiredDeposit === null ||
@@ -113,7 +157,11 @@ async function loadBookingDocumentContext(
   }
 
   return {
-    booking: booking as BookingDocumentBooking,
+    booking: {
+      ...booking,
+      agreed_total_amount: agreedTotal,
+      booking_services: bookingServices,
+    } as BookingDocumentBooking,
     payments,
     financials: {
       requiredDeposit: summary.requiredDeposit,
@@ -131,6 +179,8 @@ async function loadBookingDocumentContext(
       business_location: null,
       business_description: null,
     },
+    agreementId: agreementResult.data?.id ?? null,
+    agreementVersion: agreementResult.data?.version ?? null,
   };
 }
 
@@ -167,6 +217,8 @@ async function createDocumentRecord(
     .insert({
       booking_id: bookingId,
       payment_id: spec.paymentId ?? null,
+      agreement_id: spec.agreementId ?? null,
+      agreement_version: spec.agreementVersion ?? null,
       document_type: spec.documentType,
       document_number: number.data,
       generation_key: spec.generationKey,
@@ -291,7 +343,11 @@ async function generateDocuments(
 
   for (const spec of specs) {
     try {
-      const document = await ensureDocument(supabase, context, bookingId, spec);
+      const document = await ensureDocument(supabase, context, bookingId, {
+        ...spec,
+        agreementId: spec.agreementId ?? context.agreementId,
+        agreementVersion: spec.agreementVersion ?? context.agreementVersion,
+      });
       documents.push(document);
       if (document.errorMessage) {
         errors.push(`${document.documentNumber}: ${document.errorMessage}`);
@@ -304,15 +360,22 @@ async function generateDocuments(
   return { documents, errors };
 }
 
-export function generateInitialBookingDocuments(bookingId: string, paymentId: string | null) {
+export function generateInitialBookingDocuments(
+  bookingId: string,
+  paymentId: string | null,
+  agreementVersion?: number | null,
+) {
+  const agreementSuffix = agreementVersion ? `:agreement:${agreementVersion}` : "";
   const specs: DocumentSpec[] = [
     {
       documentType: "booking_confirmation",
-      generationKey: `booking-confirmation:${bookingId}`,
+      generationKey: `booking-confirmation:${bookingId}${agreementSuffix}`,
+      agreementVersion,
     },
     {
       documentType: "payment_statement",
-      generationKey: `initial-payment-statement:${bookingId}`,
+      generationKey: `initial-payment-statement:${bookingId}${agreementSuffix}`,
+      agreementVersion,
     },
   ];
 
@@ -321,10 +384,26 @@ export function generateInitialBookingDocuments(bookingId: string, paymentId: st
       documentType: "payment_receipt",
       generationKey: `payment-receipt:${paymentId}`,
       paymentId,
+      agreementVersion,
     });
   }
 
   return generateDocuments(bookingId, specs);
+}
+
+export function generateAmendedBookingDocuments(bookingId: string, agreementVersion: number) {
+  return generateDocuments(bookingId, [
+    {
+      documentType: "booking_confirmation",
+      generationKey: `booking-confirmation:${bookingId}:agreement:${agreementVersion}`,
+      agreementVersion,
+    },
+    {
+      documentType: "payment_statement",
+      generationKey: `payment-statement:${bookingId}:agreement:${agreementVersion}`,
+      agreementVersion,
+    },
+  ]);
 }
 
 export function generatePaymentDocuments(bookingId: string, paymentId: string) {
@@ -364,6 +443,8 @@ export async function retryBookingDocument(documentId: string) {
       documentType: document.document_type,
       generationKey: document.generation_key,
       paymentId: document.payment_id ?? undefined,
+      agreementId: document.agreement_id,
+      agreementVersion: document.agreement_version,
     },
   ]);
 }

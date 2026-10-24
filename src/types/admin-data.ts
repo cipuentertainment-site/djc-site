@@ -36,10 +36,54 @@ export type AdminBookingPayment = {
   created_at: string;
 };
 
+export type AdminBookingFinalService = {
+  id: string;
+  booking_id: string;
+  agreement_id: string | null;
+  service_id: string | null;
+  service_name_snapshot: string;
+  description_snapshot: string | null;
+  quantity: number;
+  unit_price_amount: number;
+  line_total_amount: number;
+  currency: string;
+  sort_order: number;
+};
+
+export type AdminBookingAgreement = {
+  id: string;
+  booking_id: string;
+  version: number;
+  agreed_total_amount: number;
+  amendment_reason: string | null;
+  is_current: boolean;
+  created_at: string;
+};
+
+export type AdminServiceCatalogueItem = {
+  id: string;
+  name: string;
+  description: string | null;
+  supports_half_day: boolean;
+  default_price_amount: number | null;
+  currency: string;
+};
+
+export type FinalBookingServiceInput = {
+  serviceId: string | null;
+  name: string;
+  description: string | null;
+  quantity: number;
+  unitPrice: number;
+  currency: string;
+};
+
 export type AdminBookingDocument = {
   id: string;
   booking_id: string;
   payment_id: string | null;
+  agreement_id: string | null;
+  agreement_version: number | null;
   document_type: "booking_confirmation" | "payment_statement" | "payment_receipt" | "appreciation";
   document_number: string;
   generation_key: string;
@@ -58,6 +102,8 @@ export type AdminDataResult<T> =
 
 export type AdminBookingListItem = {
   id: string;
+  event_type_id: string | null;
+  event_type_size_id: string | null;
   booking_reference: string;
   customer_name: string;
   customer_phone: string;
@@ -76,6 +122,8 @@ export type AdminBookingListItem = {
   status: BookingStatus;
   created_at: string;
   booking_services: Array<{
+    id?: string;
+    service_id: string | null;
     service_name_snapshot: string;
     price_amount_snapshot: number;
     currency: string;
@@ -96,6 +144,12 @@ export type AdminBookingDetail = AdminBookingListItem & {
   payments: AdminBookingPayment[];
   documents: AdminBookingDocument[];
   financials: BookingFinancialSummary;
+  payment_workflow_ready: boolean;
+  final_agreement_id: string | null;
+  final_agreement_version: number | null;
+  final_agreement_history: AdminBookingAgreement[];
+  final_services: AdminBookingFinalService[];
+  service_catalogue: AdminServiceCatalogueItem[];
 };
 
 export type DashboardChartPoint = {

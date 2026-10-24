@@ -8,6 +8,7 @@ import {
   generateBookingAppreciationAction,
   retryBookingDocumentAction,
 } from "@/app/admin/booking-actions";
+import { BookingAmendmentDialog } from "@/components/admin/booking-amendment-dialog";
 import { BookingPaymentDialog } from "@/components/admin/booking-payment-dialog";
 import { Button } from "@/components/ui/button";
 import {
@@ -96,7 +97,10 @@ export function BookingDocuments({ booking }: BookingDocumentsProps) {
           <CardTitle>Documents and payments</CardTitle>
           <CardDescription>Issued documents remain attached to this booking and are never overwritten.</CardDescription>
         </div>
-        <BookingPaymentDialog booking={booking} />
+        <div className="flex flex-wrap gap-2">
+          <BookingAmendmentDialog booking={booking} />
+          <BookingPaymentDialog booking={booking} />
+        </div>
       </CardHeader>
       <CardContent className="space-y-5">
         <div className="grid gap-3 rounded-lg border border-border bg-muted/30 p-4 text-sm sm:grid-cols-4">
@@ -104,6 +108,45 @@ export function BookingDocuments({ booking }: BookingDocumentsProps) {
           <Summary label="Required deposit" value={booking.financials.requiredDeposit === null ? "Not set" : formatMoney(booking.financials.requiredDeposit, booking.currency)} />
           <Summary label="Received" value={formatMoney(booking.financials.totalReceived, booking.currency)} />
           <Summary label="Remaining" value={booking.financials.remainingBalance === null ? "Not set" : formatMoney(booking.financials.remainingBalance, booking.currency)} />
+        </div>
+
+        <div className="rounded-lg border border-border p-4">
+          <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+            <div>
+              <p className="font-medium">Final Details</p>
+              <p className="text-xs text-muted-foreground">
+                {booking.final_agreement_version ? `Commercial agreement version ${booking.final_agreement_version}` : "No final commercial snapshot saved yet."}
+              </p>
+            </div>
+            <p className="font-semibold">{formatMoney(booking.financials.agreedTotal ?? 0, booking.currency)}</p>
+          </div>
+          {booking.final_services.length ? (
+            <div className="divide-y rounded-md border border-border text-sm">
+              {booking.final_services.map((service) => (
+                <div className="flex flex-wrap items-center justify-between gap-2 p-3" key={service.id}>
+                  <div>
+                    <p className="font-medium">{service.service_name_snapshot}</p>
+                    {service.description_snapshot ? <p className="text-xs text-muted-foreground">{service.description_snapshot}</p> : null}
+                  </div>
+                  <p className="font-medium">{service.quantity} × {formatMoney(service.unit_price_amount, service.currency)} = {formatMoney(service.line_total_amount, service.currency)}</p>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <p className="text-sm text-muted-foreground">Final Details will be saved when the booking is confirmed.</p>
+          )}
+          {booking.final_agreement_history.length > 1 ? (
+            <div className="mt-3 rounded-md bg-muted/30 p-3 text-xs">
+              <p className="mb-2 font-medium">Agreement history</p>
+              <div className="space-y-1 text-muted-foreground">
+                {booking.final_agreement_history.map((agreement) => (
+                  <p key={agreement.id}>
+                    Version {agreement.version}: {formatMoney(agreement.agreed_total_amount, booking.currency)}{agreement.is_current ? " (current)" : ""}{agreement.amendment_reason ? ` - ${agreement.amendment_reason}` : ""}
+                  </p>
+                ))}
+              </div>
+            </div>
+          ) : null}
         </div>
 
         <div className="rounded-lg border border-border p-4">
@@ -174,7 +217,9 @@ function DocumentRow({
         <FileText className="mt-0.5 h-5 w-5 shrink-0 text-muted-foreground" />
         <div className="min-w-0">
           <p className="font-medium">{documentTypeLabel(document.document_type)}</p>
-          <p className="text-xs text-muted-foreground">{document.document_number} · Issued {document.issue_date}</p>
+          <p className="text-xs text-muted-foreground">
+            {document.document_number} · Issued {document.issue_date}{document.agreement_version ? ` · Agreement v${document.agreement_version}` : ""}
+          </p>
           {document.status === "failed" ? <p className="mt-1 text-xs text-red-600">{document.error_message ?? "Generation failed."}</p> : null}
         </div>
       </div>

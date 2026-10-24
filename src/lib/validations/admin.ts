@@ -1,5 +1,7 @@
 import { z } from "zod";
 
+import { calculateFinalDetailsTotal } from "@/lib/bookings/financials";
+
 import { KENYAN_COUNTIES } from "@/lib/counties";
 import { MERCHANDISE_SIZE_OPTIONS } from "@/types/merchandise-media";
 
@@ -78,17 +80,36 @@ export const bookingStatusFormSchema = z.object({
 
 const manualPaymentMethodSchema = z.enum(["mpesa", "bank_transfer", "cash"]);
 
+const finalBookingServiceSchema = z.object({
+  serviceId: z.string().uuid().nullable(),
+  name: z.string().trim().min(1, "Every final service needs a name.").max(200),
+  description: z.string().trim().max(500).nullable(),
+  quantity: z.coerce.number().int().min(1).max(1000),
+  unitPrice: z.coerce.number().int().min(0).max(1_000_000_000),
+  currency: z.string().trim().min(3).max(12),
+});
+
 export const confirmBookingFormSchema = z
   .object({
     bookingId: z.string().uuid(),
-    agreedTotalAmount: z.coerce.number().int().positive("Enter an agreed total greater than zero."),
+    finalServices: z.array(finalBookingServiceSchema).min(1, "Add at least one final service."),
     initialPaymentAmount: z.coerce.number().int().min(0, "Payment cannot be negative."),
     paymentMethod: manualPaymentMethodSchema.nullable().optional(),
     transactionReference: z.string().trim().optional(),
     idempotencyKey: z.string().uuid(),
   })
   .superRefine((value, context) => {
-    if (value.initialPaymentAmount > value.agreedTotalAmount) {
+    const calculatedTotal = calculateFinalDetailsTotal(value.finalServices);
+
+    if (calculatedTotal <= 0) {
+      context.addIssue({
+        code: "custom",
+        path: ["finalServices"],
+        message: "Final service prices must produce a total greater than zero.",
+      });
+    }
+
+    if (value.initialPaymentAmount > calculatedTotal) {
       context.addIssue({
         code: "custom",
         path: ["initialPaymentAmount"],
@@ -136,8 +157,24 @@ export const recordBookingPaymentFormSchema = z
     }
   });
 
+export const amendBookingFinalDetailsFormSchema = z.object({
+  bookingId: z.string().uuid(),
+  finalServices: z.array(finalBookingServiceSchema).min(1, "Add at least one final service."),
+  amendmentReason: z.string().trim().min(3, "Enter a reason for this amendment.").max(500),
+  idempotencyKey: z.string().uuid(),
+}).superRefine((value, context) => {
+  if (calculateFinalDetailsTotal(value.finalServices) <= 0) {
+    context.addIssue({
+      code: "custom",
+      path: ["finalServices"],
+      message: "Final service prices must produce a total greater than zero.",
+    });
+  }
+});
+
 export type ConfirmBookingFormInput = z.infer<typeof confirmBookingFormSchema>;
 export type RecordBookingPaymentFormInput = z.infer<typeof recordBookingPaymentFormSchema>;
+export type AmendBookingFinalDetailsFormInput = z.infer<typeof amendBookingFinalDetailsFormSchema>;
 
 export const settingsFormSchema = z.object({
   businessName: z.string().trim().min(2),

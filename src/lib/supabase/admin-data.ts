@@ -5,7 +5,11 @@ import { calculateBookingFinancials } from "@/lib/bookings/financials";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import type {
   AdminBookingDetail,
+  AdminBookingAgreement,
+  AdminBookingFinalService,
   AdminBookingListItem,
+  AdminBookingPayment,
+  AdminServiceCatalogueItem,
   AdminConfigData,
   AdminDataResult,
   AdminMerchandiseMediaData,
@@ -34,6 +38,8 @@ import type {
 
 const bookingListSelect = `
   id,
+  event_type_id,
+  event_type_size_id,
   booking_reference,
   customer_name,
   customer_phone,
@@ -52,6 +58,8 @@ const bookingListSelect = `
   status,
   created_at,
   booking_services (
+    id,
+    service_id,
     service_name_snapshot,
     price_amount_snapshot,
     currency
@@ -62,6 +70,44 @@ const bookingDetailSelect = `
   ${bookingListSelect},
   confirmed_at,
   confirmed_by,
+  event_size_min_attendees_snapshot,
+  event_size_max_attendees_snapshot,
+  transport_disclaimer_snapshot,
+  reservation_fee_payment_reference,
+  reservation_fee_paid_at,
+  notes
+`;
+
+const legacyBookingListSelect = `
+  id,
+  event_type_id,
+  event_type_size_id,
+  customer_name,
+  customer_phone,
+  event_type_name_snapshot,
+  event_size_label_snapshot,
+  duration,
+  attendee_count,
+  event_date,
+  county,
+  location_text,
+  estimated_service_total_amount,
+  reservation_fee_amount,
+  reservation_fee_payment_status,
+  currency,
+  status,
+  created_at,
+  booking_services (
+    id,
+    service_id,
+    service_name_snapshot,
+    price_amount_snapshot,
+    currency
+  )
+`;
+
+const legacyBookingDetailSelect = `
+  ${legacyBookingListSelect},
   event_size_min_attendees_snapshot,
   event_size_max_attendees_snapshot,
   transport_disclaimer_snapshot,
@@ -117,6 +163,116 @@ function classifyError<T>(message: string, data: T): AdminDataResult<T> {
 
 function toReady<T>(data: T): AdminDataResult<T> {
   return { status: "ready", data };
+}
+
+function isBookingPaymentSchemaMissing(error: { code?: string; message?: string } | null | undefined) {
+  if (!error) {
+    return false;
+  }
+
+  const message = error.message?.toLowerCase() ?? "";
+  return error.code === "42703" || (error.code === "42P01" && message.includes("booking_"));
+}
+
+function fallbackBookingReference(id: string) {
+  return `DJC-${id.replace(/-/g, "").slice(0, 10).toUpperCase()}`;
+}
+
+function normalizeBookingRows(rows: unknown[] | null) {
+  return (rows ?? []).map((row) => {
+    const item = row as AdminBookingListItem & {
+      booking_reference?: string | null;
+      agreed_total_amount?: number | null;
+    };
+
+    return {
+      ...item,
+      booking_reference: item.booking_reference ?? fallbackBookingReference(item.id),
+      agreed_total_amount: item.agreed_total_amount ?? null,
+    } as AdminBookingListItem;
+  });
+}
+
+function normalizeLegacyPayments(rows: Array<{
+  id: string;
+  booking_id: string | null;
+  amount: number;
+  currency: string;
+  internal_reference: string;
+  mpesa_receipt_number: string | null;
+  paid_at: string | null;
+  created_at: string;
+  status: string;
+}> | null): AdminBookingPayment[] {
+  return (rows ?? [])
+    .filter((row) => row.status === "success" && row.booking_id)
+    .map((row) => ({
+      id: row.id,
+      booking_id: row.booking_id as string,
+      amount: row.amount,
+      currency: row.currency,
+      method: "mpesa" as const,
+      transaction_reference: row.mpesa_receipt_number ?? row.internal_reference ?? null,
+      paid_at: row.paid_at ?? row.created_at,
+      created_at: row.created_at,
+    }));
+}
+
+function normalizeRequestedFinalServices(
+  booking: AdminBookingListItem,
+): AdminBookingFinalService[] {
+  return booking.booking_services.map((service, index) => ({
+    id: service.id ?? `${booking.id}-requested-${index}`,
+    booking_id: booking.id,
+    agreement_id: null,
+    service_id: service.service_id,
+    service_name_snapshot: service.service_name_snapshot,
+    description_snapshot: null,
+    quantity: 1,
+    unit_price_amount: service.price_amount_snapshot,
+    line_total_amount: service.price_amount_snapshot,
+    currency: service.currency,
+    sort_order: index + 1,
+  }));
+}
+
+function buildServiceCatalogue(
+  booking: AdminBookingListItem,
+  services: Array<{
+    id: string;
+    name: string;
+    description: string | null;
+    supports_half_day: boolean | null;
+  }> | null,
+  prices: Array<{
+    service_id: string;
+    event_type_id: string;
+    event_type_size_id: string;
+    duration: string;
+    price_amount: number;
+    currency: string;
+    is_active: boolean;
+  }> | null,
+): AdminServiceCatalogueItem[] {
+  return (services ?? []).map((service) => {
+    const price = (prices ?? []).find(
+      (candidate) =>
+        candidate.service_id === service.id &&
+        candidate.event_type_id === booking.event_type_id &&
+        candidate.event_type_size_id === booking.event_type_size_id &&
+        candidate.duration === booking.duration &&
+        candidate.is_active,
+    );
+
+    return {
+      id: service.id,
+      name: service.name,
+      description: service.description,
+      supports_half_day: service.supports_half_day ?? false,
+      default_price_amount: price?.price_amount ?? null,
+      currency: price?.currency ?? booking.currency,
+    };
+  });
 }
 
 async function getAdminClient<T>(emptyData: T): Promise<
@@ -269,6 +425,21 @@ export async function getAdminDashboardData(
     supabase.from("website_visitors").select("visitor_id", { count: "exact", head: true }),
   ]);
 
+  let recentBookingRows = recentBookings.data as unknown[] | null;
+  if (recentBookings.error && isBookingPaymentSchemaMissing(recentBookings.error)) {
+    const legacyRecentBookings = await supabase
+      .from("bookings")
+      .select(legacyBookingListSelect)
+      .order("created_at", { ascending: false })
+      .limit(8);
+
+    if (legacyRecentBookings.error) {
+      return classifyError(legacyRecentBookings.error.message, emptyDashboard);
+    }
+
+    recentBookingRows = legacyRecentBookings.data as unknown[] | null;
+  }
+
   const firstError =
     pending.error ??
     confirmed.error ??
@@ -276,7 +447,9 @@ export async function getAdminDashboardData(
     rejected.error ??
     upcoming.error ??
     todaysEvents.error ??
-    recentBookings.error ??
+    (recentBookings.error && !isBookingPaymentSchemaMissing(recentBookings.error)
+      ? recentBookings.error
+      : null) ??
     chartBookings.error ??
     serviceRows.error;
 
@@ -335,8 +508,7 @@ export async function getAdminDashboardData(
       today: todaysEvents.count ?? 0,
       websiteVisitors: websiteVisitors.count ?? 0,
     },
-    recentBookings:
-      (recentBookings.data as AdminBookingListItem[] | null) ?? [],
+    recentBookings: normalizeBookingRows(recentBookingRows),
     bookingsOverTime: toPoints(bookingCounts),
     eventTypes: toPoints(eventTypeCounts),
     servicesRequested: toPoints(serviceCounts),
@@ -427,11 +599,53 @@ export async function getAdminBookings(searchParams: {
   const result = await query.range(from, to);
 
   if (result.error) {
+    if (isBookingPaymentSchemaMissing(result.error)) {
+      let legacyQuery = supabase
+        .from("bookings")
+        .select(legacyBookingListSelect, { count: "exact" })
+        .order("created_at", { ascending: false });
+
+      if (searchParams.status && searchParams.status !== "all") {
+        legacyQuery = legacyQuery.eq("status", searchParams.status);
+      }
+      if (searchParams.search) {
+        const search = searchParams.search.replace(/[%_,]/g, "");
+        legacyQuery = legacyQuery.or(`customer_name.ilike.%${search}%,customer_phone.ilike.%${search}%`);
+      }
+      if (searchParams.eventTypeId) {
+        legacyQuery = legacyQuery.eq("event_type_id", searchParams.eventTypeId);
+      }
+      if (searchParams.county) {
+        legacyQuery = legacyQuery.eq("county", searchParams.county);
+      }
+      if (searchParams.dateFrom) {
+        legacyQuery = legacyQuery.gte("event_date", searchParams.dateFrom);
+      }
+      if (searchParams.dateTo) {
+        legacyQuery = legacyQuery.lte("event_date", searchParams.dateTo);
+      }
+      if (bookingIdsForService) {
+        legacyQuery = legacyQuery.in("id", bookingIdsForService);
+      }
+
+      const legacyResult = await legacyQuery.range(from, to);
+      if (legacyResult.error) {
+        return classifyError(legacyResult.error.message, empty);
+      }
+
+      return toReady({
+        bookings: normalizeBookingRows(legacyResult.data as unknown[] | null),
+        total: legacyResult.count ?? 0,
+        page,
+        pageSize,
+      });
+    }
+
     return classifyError(result.error.message, empty);
   }
 
   return toReady({
-    bookings: (result.data as AdminBookingListItem[] | null) ?? [],
+    bookings: normalizeBookingRows(result.data as unknown[] | null),
     total: result.count ?? 0,
     page,
     pageSize,
@@ -447,7 +661,7 @@ export async function getAdminBookingDetail(
     return client.result;
   }
 
-  const [result, payments, documents] = await Promise.all([
+  const [result, payments, documents, agreements, finalServices, catalogueServices, cataloguePrices] = await Promise.all([
     client.supabase
       .from("bookings")
       .select(bookingDetailSelect)
@@ -463,15 +677,92 @@ export async function getAdminBookingDetail(
     client.supabase
       .from("booking_documents")
       .select(
-        "id,booking_id,payment_id,document_type,document_number,generation_key,status,issue_date,storage_path,error_message,created_at",
+        "id,booking_id,payment_id,agreement_id,agreement_version,document_type,document_number,generation_key,status,issue_date,storage_path,error_message,created_at",
       )
       .eq("booking_id", id)
       .order("created_at", { ascending: false }),
+    client.supabase
+      .from("booking_final_agreements")
+      .select("id,booking_id,version,agreed_total_amount,amendment_reason,is_current,created_at")
+      .eq("booking_id", id)
+      .order("version", { ascending: false }),
+    client.supabase
+      .from("booking_final_services")
+      .select("id,booking_id,agreement_id,service_id,service_name_snapshot,description_snapshot,quantity,unit_price_amount,line_total_amount,currency,sort_order")
+      .eq("booking_id", id)
+      .order("sort_order", { ascending: true }),
+    client.supabase
+      .from("services")
+      .select("id,name,description,supports_half_day")
+      .eq("is_active", true)
+      .order("sort_order", { ascending: true })
+      .order("name", { ascending: true }),
+    client.supabase
+      .from("service_prices")
+      .select("service_id,event_type_id,event_type_size_id,duration,price_amount,currency,is_active")
+      .eq("is_active", true),
   ]);
 
-  const error = result.error ?? payments.error ?? documents.error;
+  const error = result.error ?? payments.error ?? documents.error ?? agreements.error ?? finalServices.error ?? catalogueServices.error ?? cataloguePrices.error;
 
   if (error) {
+    if (isBookingPaymentSchemaMissing(error)) {
+      const [legacyBooking, legacyPayments] = await Promise.all([
+        client.supabase
+          .from("bookings")
+          .select(legacyBookingDetailSelect)
+          .eq("id", id)
+          .maybeSingle(),
+        client.supabase
+          .from("reservation_payments")
+          .select("id,booking_id,amount,currency,internal_reference,mpesa_receipt_number,paid_at,created_at,status")
+          .eq("booking_id", id)
+          .order("created_at", { ascending: true }),
+      ]);
+
+      const legacyError = legacyBooking.error ?? legacyPayments.error;
+      if (legacyError) {
+        return classifyError(legacyError.message, null);
+      }
+
+      if (!legacyBooking.data) {
+        return toReady(null);
+      }
+
+      const legacyRow = legacyBooking.data as Omit<
+        AdminBookingDetail,
+        "payments" | "documents" | "financials" | "payment_workflow_ready"
+      >;
+      const paymentRows = normalizeLegacyPayments(legacyPayments.data as Array<{
+        id: string;
+        booking_id: string | null;
+        amount: number;
+        currency: string;
+        internal_reference: string;
+        mpesa_receipt_number: string | null;
+        paid_at: string | null;
+        created_at: string;
+        status: string;
+      }> | null);
+
+      return toReady({
+        ...legacyRow,
+        booking_reference: fallbackBookingReference(legacyRow.id),
+        agreed_total_amount: null,
+        confirmed_at: null,
+        confirmed_by: null,
+        payments: paymentRows,
+        documents: [],
+        financials: calculateBookingFinancials(null, paymentRows),
+        payment_workflow_ready: false,
+        final_agreement_id: null,
+        final_agreement_version: null,
+        final_agreement_history: [],
+        final_services: normalizeRequestedFinalServices(legacyRow),
+        service_catalogue: [],
+      });
+    }
+
     return classifyError(error.message, null);
   }
 
@@ -484,12 +775,39 @@ export async function getAdminBookingDetail(
     AdminBookingDetail,
     "payments" | "documents" | "financials"
   >;
+  const agreementHistory = (agreements.data ?? []) as AdminBookingAgreement[];
+  const agreement = agreementHistory.find((item) => item.is_current) ?? agreementHistory[0] ?? null;
+  const requestedServices = normalizeRequestedFinalServices(bookingRow);
+  const savedFinalServices = (finalServices.data ?? []) as AdminBookingFinalService[];
 
   return toReady({
     ...bookingRow,
     payments: paymentRows,
     documents: (documents.data ?? []) as AdminBookingDetail["documents"],
     financials: calculateBookingFinancials(bookingRow.agreed_total_amount, paymentRows),
+    payment_workflow_ready: true,
+    final_agreement_id: agreement?.id ?? null,
+    final_agreement_version: agreement?.version ?? null,
+    final_agreement_history: agreementHistory,
+    final_services: savedFinalServices.length ? savedFinalServices : requestedServices,
+    service_catalogue: buildServiceCatalogue(
+      bookingRow,
+      catalogueServices.data as Array<{
+        id: string;
+        name: string;
+        description: string | null;
+        supports_half_day: boolean | null;
+      }> | null,
+      cataloguePrices.data as Array<{
+        service_id: string;
+        event_type_id: string;
+        event_type_size_id: string;
+        duration: string;
+        price_amount: number;
+        currency: string;
+        is_active: boolean;
+      }> | null,
+    ),
   });
 }
 
@@ -518,7 +836,23 @@ export async function getAdminCalendarData(
       .order("event_date", { ascending: true }),
   ]);
 
-  const error = availability.error ?? bookings.error;
+  let confirmedBookingRows = bookings.data as unknown[] | null;
+  let bookingsError = bookings.error;
+
+  if (bookings.error && isBookingPaymentSchemaMissing(bookings.error)) {
+    const legacyBookings = await client.supabase
+      .from("bookings")
+      .select(legacyBookingListSelect)
+      .eq("status", "confirmed")
+      .gte("event_date", fromDate)
+      .lte("event_date", toDate)
+      .order("event_date", { ascending: true });
+
+    confirmedBookingRows = legacyBookings.data as unknown[] | null;
+    bookingsError = legacyBookings.error;
+  }
+
+  const error = availability.error ?? bookingsError;
 
   if (error) {
     return classifyError(error.message, empty);
@@ -526,7 +860,7 @@ export async function getAdminCalendarData(
 
   return toReady({
     availability: (availability.data as DateAvailability[] | null) ?? [],
-    confirmedBookings: (bookings.data as AdminBookingListItem[] | null) ?? [],
+    confirmedBookings: normalizeBookingRows(confirmedBookingRows),
   });
 }
 

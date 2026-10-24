@@ -5,6 +5,7 @@ import { Check, Download, Loader2 } from "lucide-react";
 import { useRouter } from "next/navigation";
 
 import { confirmBookingWithPaymentAction } from "@/app/admin/booking-actions";
+import { FinalDetailsEditor } from "@/components/admin/final-details-editor";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -23,6 +24,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { buildInitialFinalDetails, calculateFinalDetailsTotal } from "@/lib/bookings/final-details";
 import { calculateBookingFinancials } from "@/lib/bookings/financials";
 import { formatMoney } from "@/lib/format";
 import type { AdminBookingDetail, ManualPaymentMethod } from "@/types/admin-data";
@@ -46,7 +48,7 @@ function openDocumentDownloads(documentIds: string[]) {
 export function BookingConfirmationDialog({ booking }: BookingConfirmationDialogProps) {
   const router = useRouter();
   const [open, setOpen] = useState(false);
-  const [agreedTotal, setAgreedTotal] = useState("");
+  const [finalLines, setFinalLines] = useState(() => buildInitialFinalDetails(booking));
   const [initialPayment, setInitialPayment] = useState("0");
   const [paymentMethod, setPaymentMethod] = useState<ManualPaymentMethod | "">("");
   const [transactionReference, setTransactionReference] = useState("");
@@ -54,23 +56,26 @@ export function BookingConfirmationDialog({ booking }: BookingConfirmationDialog
   const [documentIds, setDocumentIds] = useState<string[]>([]);
   const [idempotencyKey, setIdempotencyKey] = useState("");
   const [isPending, startTransition] = useTransition();
+  const finalTotal = useMemo(
+    () => calculateFinalDetailsTotal(finalLines),
+    [finalLines],
+  );
 
   const preview = useMemo(() => {
-    const total = Number(agreedTotal);
     const payment = Number(initialPayment);
 
-    if (!Number.isInteger(total) || total <= 0 || !Number.isInteger(payment) || payment < 0) {
+    if (finalTotal <= 0 || !Number.isInteger(payment) || payment < 0) {
       return null;
     }
 
-    return calculateBookingFinancials(total, [
+    return calculateBookingFinancials(finalTotal, [
       ...booking.payments,
       ...(payment > 0 ? [{ amount: payment }] : []),
     ]);
-  }, [agreedTotal, initialPayment, booking.payments]);
+  }, [finalTotal, initialPayment, booking.payments]);
 
   function reset() {
-    setAgreedTotal(booking.agreed_total_amount?.toString() ?? "");
+    setFinalLines(buildInitialFinalDetails(booking));
     setInitialPayment("0");
     setPaymentMethod("");
     setTransactionReference("");
@@ -81,7 +86,6 @@ export function BookingConfirmationDialog({ booking }: BookingConfirmationDialog
 
   function submit() {
     setMessage(undefined);
-    const agreedTotalAmount = Number(agreedTotal);
     const initialPaymentAmount = Number(initialPayment);
     const requestKey = idempotencyKey || crypto.randomUUID();
     setIdempotencyKey(requestKey);
@@ -89,7 +93,14 @@ export function BookingConfirmationDialog({ booking }: BookingConfirmationDialog
     startTransition(async () => {
       const result = await confirmBookingWithPaymentAction({
         bookingId: booking.id,
-        agreedTotalAmount,
+        finalServices: finalLines.map((line) => ({
+          serviceId: line.serviceId,
+          name: line.name.trim(),
+          description: line.description?.trim() || null,
+          quantity: line.quantity,
+          unitPrice: line.unitPrice,
+          currency: line.currency || booking.currency,
+        })),
         initialPaymentAmount,
         paymentMethod: paymentMethod || null,
         transactionReference,
@@ -144,22 +155,24 @@ export function BookingConfirmationDialog({ booking }: BookingConfirmationDialog
             {booking.notes ? <Info label="Notes" value={booking.notes} /> : null}
           </div>
 
-          <div>
-            <p className="mb-2 text-sm font-semibold">Agreed services</p>
-            <div className="space-y-2 rounded-lg border border-border p-3 text-sm">
-              {booking.booking_services.map((service) => (
-                <div className="flex justify-between gap-3" key={service.service_name_snapshot}>
-                  <span>{service.service_name_snapshot}</span>
-                  <span className="font-medium">{formatMoney(service.price_amount_snapshot, service.currency)}</span>
-                </div>
-              ))}
-            </div>
-          </div>
+          <section>
+            <h3 className="mb-2 text-sm font-semibold">Final Details</h3>
+            <FinalDetailsEditor
+              lines={finalLines}
+              catalogue={booking.service_catalogue}
+              currency={booking.currency}
+              disabled={isPending}
+              onChange={setFinalLines}
+            />
+            <p className="mt-2 text-xs text-muted-foreground">
+              The total above is calculated from these final line items and becomes the authoritative agreed price. The original request remains unchanged for reference.
+            </p>
+          </section>
 
           <div className="grid gap-4 sm:grid-cols-2">
             <div className="space-y-2">
-              <Label htmlFor="agreed-total">Agreed total price (KSh)</Label>
-              <Input id="agreed-total" type="number" min="1" step="1" value={agreedTotal} onChange={(event) => setAgreedTotal(event.target.value)} disabled={isPending} />
+              <Label>Final agreed total (KSh)</Label>
+              <p className="rounded-md border border-border bg-muted/30 p-2 text-sm font-semibold">{formatMoney(finalTotal, booking.currency)}</p>
               <p className="text-xs text-muted-foreground">Website estimate reference: {formatMoney(booking.estimated_service_total_amount, booking.currency)}</p>
             </div>
             <div className="space-y-2">

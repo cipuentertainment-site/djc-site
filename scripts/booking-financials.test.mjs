@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { calculateBookingFinancials } from "../src/lib/bookings/financials.ts";
+import { calculateBookingFinancials, calculateFinalDetailsTotal } from "../src/lib/bookings/financials.ts";
 
 test("calculates the required deposit and outstanding balances", () => {
   const result = calculateBookingFinancials(55_000, [{ amount: 10_000 }]);
@@ -36,4 +36,14 @@ test("shows no-payment state when the initial amount is zero", () => {
   assert.equal(result.depositOutstanding, 40_000);
   assert.equal(result.remainingBalance, 80_000);
   assert.equal(result.paymentStatus, "unpaid");
+});
+
+test("calculates the final agreed total from editable service lines", () => {
+  assert.equal(
+    calculateFinalDetailsTotal([
+      { quantity: 1, unitPrice: 5_000 },
+      { quantity: 2, unitPrice: 3_000 },
+    ]),
+    11_000,
+  );
 });

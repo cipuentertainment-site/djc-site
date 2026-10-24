@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 
 import {
   generateBookingAppreciationDocument,
+  generateAmendedBookingDocuments,
   generateInitialBookingDocuments,
   generatePaymentDocuments,
   retryBookingDocument,
@@ -12,8 +13,10 @@ import { requireAdminAction } from "@/lib/auth/admin";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import {
   confirmBookingFormSchema,
+  amendBookingFinalDetailsFormSchema,
   recordBookingPaymentFormSchema,
   type ConfirmBookingFormInput,
+  type AmendBookingFinalDetailsFormInput,
   type RecordBookingPaymentFormInput,
 } from "@/lib/validations/admin";
 
@@ -59,6 +62,14 @@ function actionError(error: unknown) {
     return "Check the payment amounts and try again.";
   }
 
+  if (message.includes("final service") || message.includes("final total")) {
+    return "Check the Final Details service lines and prices.";
+  }
+
+  if (message.includes("migration") || message.includes("could not find the function") || message.includes("does not exist")) {
+    return "The booking payment migration has not been applied to the database yet.";
+  }
+
   if (message.includes("already confirmed")) {
     return "This booking has already been confirmed.";
   }
@@ -79,7 +90,13 @@ function getRpcRow(data: unknown) {
     return null;
   }
 
-  return data[0] as { booking_id?: string; payment_id?: string | null } | undefined;
+  return data[0] as {
+    booking_id?: string;
+    payment_id?: string | null;
+    agreement_id?: string;
+    agreement_version?: number;
+    agreed_total_amount?: number;
+  } | undefined;
 }
 
 function revalidateBooking(bookingId: string) {
@@ -103,9 +120,9 @@ export async function confirmBookingWithPaymentAction(
     return client.result;
   }
 
-  const result = await client.supabase.rpc("confirm_booking_with_payment", {
+  const result = await client.supabase.rpc("confirm_booking_with_final_details", {
     p_booking_id: parsed.data.bookingId,
-    p_agreed_total_amount: parsed.data.agreedTotalAmount,
+    p_final_services: parsed.data.finalServices,
     p_initial_payment_amount: parsed.data.initialPaymentAmount,
     p_payment_method: parsed.data.initialPaymentAmount > 0 ? parsed.data.paymentMethod : null,
     p_transaction_reference:
@@ -124,7 +141,11 @@ export async function confirmBookingWithPaymentAction(
 
   let documents;
   try {
-    documents = await generateInitialBookingDocuments(row.booking_id, row.payment_id ?? null);
+    documents = await generateInitialBookingDocuments(
+      row.booking_id,
+      row.payment_id ?? null,
+      row.agreement_version,
+    );
   } catch (error) {
     revalidateBooking(row.booking_id);
     return {
@@ -145,6 +166,59 @@ export async function confirmBookingWithPaymentAction(
     documentIds: documents.documents.filter((item) => item.status === "generated").map((item) => item.id),
     documentErrors: documents.errors,
   };
+}
+
+export async function amendBookingFinalDetailsAction(
+  input: AmendBookingFinalDetailsFormInput,
+): Promise<BookingWorkflowResult> {
+  const parsed = amendBookingFinalDetailsFormSchema.safeParse(input);
+
+  if (!parsed.success) {
+    return { ok: false, message: parsed.error.issues[0]?.message ?? "Check the Final Details." };
+  }
+
+  const client = await getBookingActionClient();
+  if (!client.ok) {
+    return client.result;
+  }
+
+  const result = await client.supabase.rpc("amend_booking_final_details", {
+    p_booking_id: parsed.data.bookingId,
+    p_final_services: parsed.data.finalServices,
+    p_amendment_reason: parsed.data.amendmentReason,
+    p_idempotency_key: parsed.data.idempotencyKey,
+  });
+
+  if (result.error) {
+    return { ok: false, message: actionError(result.error) };
+  }
+
+  const row = Array.isArray(result.data)
+    ? result.data[0] as { agreement_version?: number }
+    : null;
+  if (!row?.agreement_version) {
+    return { ok: false, message: "The Final Details amendment could not be saved." };
+  }
+
+  try {
+    const documents = await generateAmendedBookingDocuments(parsed.data.bookingId, row.agreement_version);
+    revalidateBooking(parsed.data.bookingId);
+    return {
+      ok: true,
+      message: documents.errors.length
+        ? "Final Details amended. Some revised documents need a retry."
+        : "Final Details amended and revised documents generated.",
+      documentIds: documents.documents.filter((item) => item.status === "generated").map((item) => item.id),
+      documentErrors: documents.errors,
+    };
+  } catch (error) {
+    revalidateBooking(parsed.data.bookingId);
+    return {
+      ok: true,
+      message: `Final Details amended, but revised documents could not be generated: ${actionError(error)}`,
+      documentErrors: [actionError(error)],
+    };
+  }
 }
 
 export async function recordBookingPaymentAction(
