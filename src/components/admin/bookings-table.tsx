@@ -49,6 +49,7 @@ export function BookingsTable({ bookings, compact = false }: BookingsTableProps)
           <TableRow key={booking.id}>
             <TableCell>
               <div className="font-medium">{booking.customer_name}</div>
+              <div className="text-xs text-muted-foreground">{booking.booking_reference}</div>
               {compact ? (
                 <div className="text-xs text-muted-foreground">
                   {booking.customer_phone}
@@ -83,10 +84,10 @@ export function BookingsTable({ bookings, compact = false }: BookingsTableProps)
             </TableCell>
             <TableCell>
               <div>
-                {formatMoney(booking.estimated_service_total_amount, booking.currency)}
+                {formatMoney(booking.agreed_total_amount ?? booking.estimated_service_total_amount, booking.currency)}
               </div>
               <div className="text-xs capitalize text-muted-foreground">
-                Reservation {formatPaymentStatus(booking.reservation_fee_payment_status)}
+                {booking.agreed_total_amount === null ? "Estimate" : "Agreed total"} · Reservation {formatPaymentStatus(booking.reservation_fee_payment_status)}
               </div>
             </TableCell>
             <TableCell>

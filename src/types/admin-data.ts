@@ -14,6 +14,7 @@ import type {
   MerchandiseRequest,
   PortfolioItem,
 } from "@/types/merchandise-media";
+import type { BookingFinancialSummary } from "@/lib/bookings/financials";
 
 export type BookingStatus =
   | "pending"
@@ -21,6 +22,33 @@ export type BookingStatus =
   | "completed"
   | "rejected"
   | "cancelled";
+
+export type ManualPaymentMethod = "mpesa" | "bank_transfer" | "cash";
+
+export type AdminBookingPayment = {
+  id: string;
+  booking_id: string;
+  amount: number;
+  currency: string;
+  method: ManualPaymentMethod;
+  transaction_reference: string | null;
+  paid_at: string;
+  created_at: string;
+};
+
+export type AdminBookingDocument = {
+  id: string;
+  booking_id: string;
+  payment_id: string | null;
+  document_type: "booking_confirmation" | "payment_statement" | "payment_receipt" | "appreciation";
+  document_number: string;
+  generation_key: string;
+  status: "generating" | "generated" | "failed";
+  issue_date: string;
+  storage_path: string;
+  error_message: string | null;
+  created_at: string;
+};
 
 export type AdminDataResult<T> =
   | { status: "ready"; data: T }
@@ -30,6 +58,7 @@ export type AdminDataResult<T> =
 
 export type AdminBookingListItem = {
   id: string;
+  booking_reference: string;
   customer_name: string;
   customer_phone: string;
   event_type_name_snapshot: string;
@@ -40,6 +69,7 @@ export type AdminBookingListItem = {
   county: string;
   location_text: string;
   estimated_service_total_amount: number;
+  agreed_total_amount: number | null;
   reservation_fee_amount: number;
   reservation_fee_payment_status: string;
   currency: string;
@@ -53,12 +83,19 @@ export type AdminBookingListItem = {
 };
 
 export type AdminBookingDetail = AdminBookingListItem & {
+  booking_reference: string;
+  agreed_total_amount: number | null;
+  confirmed_at: string | null;
+  confirmed_by: string | null;
   event_size_min_attendees_snapshot: number;
   event_size_max_attendees_snapshot: number;
   transport_disclaimer_snapshot: string;
   reservation_fee_payment_reference: string | null;
   reservation_fee_paid_at: string | null;
   notes: string | null;
+  payments: AdminBookingPayment[];
+  documents: AdminBookingDocument[];
+  financials: BookingFinancialSummary;
 };
 
 export type DashboardChartPoint = {

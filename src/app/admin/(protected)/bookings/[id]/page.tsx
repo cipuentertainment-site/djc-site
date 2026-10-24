@@ -3,6 +3,7 @@ import { format } from "date-fns";
 
 import { AdminAlert } from "@/components/admin/admin-alert";
 import { AdminPageHeader } from "@/components/admin/admin-page-header";
+import { BookingDocuments } from "@/components/admin/booking-documents";
 import { BookingStatusActions } from "@/components/admin/booking-status-actions";
 import { StatusBadge } from "@/components/admin/status-badge";
 import { Button } from "@/components/ui/button";
@@ -195,10 +196,12 @@ export default async function BookingDetailPage({ params }: BookingDetailPagePro
             <CardDescription>Only valid workflow transitions are shown.</CardDescription>
           </CardHeader>
           <CardContent>
-            <BookingStatusActions bookingId={item.id} status={item.status} />
+            <BookingStatusActions booking={item} />
           </CardContent>
         </Card>
       </div>
+
+      <BookingDocuments booking={item} />
     </div>
   );
 }

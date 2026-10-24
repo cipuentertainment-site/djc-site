@@ -4,28 +4,22 @@ import { Check, X } from "lucide-react";
 
 import { changeBookingStatusAction } from "@/app/admin/actions";
 import { ActionButton } from "@/components/admin/action-button";
-import type { BookingStatus } from "@/types/admin-data";
+import { BookingConfirmationDialog } from "@/components/admin/booking-confirmation-dialog";
+import type { AdminBookingDetail } from "@/types/admin-data";
 
 type BookingStatusActionsProps = {
-  bookingId: string;
-  status: BookingStatus;
+  booking: AdminBookingDetail;
 };
 
-export function BookingStatusActions({ bookingId, status }: BookingStatusActionsProps) {
-  if (status === "pending") {
+export function BookingStatusActions({ booking }: BookingStatusActionsProps) {
+  if (booking.status === "pending") {
     return (
       <div className="flex flex-wrap gap-2">
-        <ActionButton
-          size="sm"
-          action={() => changeBookingStatusAction(bookingId, "confirmed")}
-        >
-          <Check className="h-4 w-4" />
-          Confirm
-        </ActionButton>
+        <BookingConfirmationDialog booking={booking} />
         <ActionButton
           size="sm"
           variant="outline"
-          action={() => changeBookingStatusAction(bookingId, "rejected")}
+          action={() => changeBookingStatusAction(booking.id, "rejected")}
         >
           <X className="h-4 w-4" />
           Reject
@@ -34,12 +28,12 @@ export function BookingStatusActions({ bookingId, status }: BookingStatusActions
     );
   }
 
-  if (status === "confirmed") {
+  if (booking.status === "confirmed") {
     return (
       <ActionButton
         size="sm"
         variant="secondary"
-        action={() => changeBookingStatusAction(bookingId, "completed")}
+        action={() => changeBookingStatusAction(booking.id, "completed")}
       >
         <Check className="h-4 w-4" />
         Complete

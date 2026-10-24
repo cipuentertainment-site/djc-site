@@ -3,6 +3,7 @@ import { supabaseUrl } from "@/lib/supabase/config";
 export const serviceImagesBucket = "service-images";
 export const portfolioImagesBucket = "portfolio-images";
 export const merchandiseImagesBucket = "merchandise-images";
+export const bookingDocumentsBucket = "booking-documents";
 
 export function getStorageImageUrl(path: string | null | undefined, bucket: string) {
   const value = path?.trim();

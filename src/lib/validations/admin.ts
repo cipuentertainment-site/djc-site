@@ -76,6 +76,69 @@ export const bookingStatusFormSchema = z.object({
   nextStatus: z.enum(["confirmed", "completed", "rejected"]),
 });
 
+const manualPaymentMethodSchema = z.enum(["mpesa", "bank_transfer", "cash"]);
+
+export const confirmBookingFormSchema = z
+  .object({
+    bookingId: z.string().uuid(),
+    agreedTotalAmount: z.coerce.number().int().positive("Enter an agreed total greater than zero."),
+    initialPaymentAmount: z.coerce.number().int().min(0, "Payment cannot be negative."),
+    paymentMethod: manualPaymentMethodSchema.nullable().optional(),
+    transactionReference: z.string().trim().optional(),
+    idempotencyKey: z.string().uuid(),
+  })
+  .superRefine((value, context) => {
+    if (value.initialPaymentAmount > value.agreedTotalAmount) {
+      context.addIssue({
+        code: "custom",
+        path: ["initialPaymentAmount"],
+        message: "Payment cannot exceed the agreed total.",
+      });
+    }
+
+    if (value.initialPaymentAmount > 0 && !value.paymentMethod) {
+      context.addIssue({
+        code: "custom",
+        path: ["paymentMethod"],
+        message: "Choose a payment method when recording a payment.",
+      });
+    }
+
+    if (
+      value.initialPaymentAmount > 0 &&
+      value.paymentMethod &&
+      value.paymentMethod !== "cash" &&
+      !value.transactionReference
+    ) {
+      context.addIssue({
+        code: "custom",
+        path: ["transactionReference"],
+        message: "Enter the transaction reference.",
+      });
+    }
+  });
+
+export const recordBookingPaymentFormSchema = z
+  .object({
+    bookingId: z.string().uuid(),
+    amount: z.coerce.number().int().positive("Enter a payment amount greater than zero."),
+    paymentMethod: manualPaymentMethodSchema,
+    transactionReference: z.string().trim().optional(),
+    idempotencyKey: z.string().uuid(),
+  })
+  .superRefine((value, context) => {
+    if (value.paymentMethod !== "cash" && !value.transactionReference) {
+      context.addIssue({
+        code: "custom",
+        path: ["transactionReference"],
+        message: "Enter the transaction reference.",
+      });
+    }
+  });
+
+export type ConfirmBookingFormInput = z.infer<typeof confirmBookingFormSchema>;
+export type RecordBookingPaymentFormInput = z.infer<typeof recordBookingPaymentFormSchema>;
+
 export const settingsFormSchema = z.object({
   businessName: z.string().trim().min(2),
   businessPhone: z.string().trim().optional(),

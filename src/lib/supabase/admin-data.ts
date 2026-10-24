@@ -1,6 +1,7 @@
 import { format, subDays } from "date-fns";
 
 import { requireAdmin } from "@/lib/auth/admin";
+import { calculateBookingFinancials } from "@/lib/bookings/financials";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import type {
   AdminBookingDetail,
@@ -33,6 +34,7 @@ import type {
 
 const bookingListSelect = `
   id,
+  booking_reference,
   customer_name,
   customer_phone,
   event_type_name_snapshot,
@@ -43,6 +45,7 @@ const bookingListSelect = `
   county,
   location_text,
   estimated_service_total_amount,
+  agreed_total_amount,
   reservation_fee_amount,
   reservation_fee_payment_status,
   currency,
@@ -57,6 +60,8 @@ const bookingListSelect = `
 
 const bookingDetailSelect = `
   ${bookingListSelect},
+  confirmed_at,
+  confirmed_by,
   event_size_min_attendees_snapshot,
   event_size_max_attendees_snapshot,
   transport_disclaimer_snapshot,
@@ -442,17 +447,50 @@ export async function getAdminBookingDetail(
     return client.result;
   }
 
-  const result = await client.supabase
-    .from("bookings")
-    .select(bookingDetailSelect)
-    .eq("id", id)
-    .maybeSingle();
+  const [result, payments, documents] = await Promise.all([
+    client.supabase
+      .from("bookings")
+      .select(bookingDetailSelect)
+      .eq("id", id)
+      .maybeSingle(),
+    client.supabase
+      .from("booking_payments")
+      .select(
+        "id,booking_id,amount,currency,method,transaction_reference,paid_at,created_at",
+      )
+      .eq("booking_id", id)
+      .order("created_at", { ascending: true }),
+    client.supabase
+      .from("booking_documents")
+      .select(
+        "id,booking_id,payment_id,document_type,document_number,generation_key,status,issue_date,storage_path,error_message,created_at",
+      )
+      .eq("booking_id", id)
+      .order("created_at", { ascending: false }),
+  ]);
 
-  if (result.error) {
-    return classifyError(result.error.message, null);
+  const error = result.error ?? payments.error ?? documents.error;
+
+  if (error) {
+    return classifyError(error.message, null);
   }
 
-  return toReady((result.data as AdminBookingDetail | null) ?? null);
+  if (!result.data) {
+    return toReady(null);
+  }
+
+  const paymentRows = (payments.data ?? []) as AdminBookingDetail["payments"];
+  const bookingRow = result.data as Omit<
+    AdminBookingDetail,
+    "payments" | "documents" | "financials"
+  >;
+
+  return toReady({
+    ...bookingRow,
+    payments: paymentRows,
+    documents: (documents.data ?? []) as AdminBookingDetail["documents"],
+    financials: calculateBookingFinancials(bookingRow.agreed_total_amount, paymentRows),
+  });
 }
 
 export async function getAdminCalendarData(
