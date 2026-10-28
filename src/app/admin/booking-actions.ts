@@ -47,8 +47,26 @@ async function getBookingActionClient() {
   return { ok: true as const, supabase };
 }
 
-function actionError(error: unknown) {
-  const message = error instanceof Error ? error.message.toLowerCase() : "";
+function actionError(error: unknown, rpcName?: string) {
+  const errorRecord =
+    typeof error === "object" && error !== null
+      ? (error as { message?: unknown; details?: unknown; code?: unknown; status?: unknown })
+      : null;
+  const rawMessage = [errorRecord?.message, errorRecord?.details, errorRecord?.code]
+    .filter((value): value is string => typeof value === "string")
+    .join(" ");
+  const message = rawMessage.toLowerCase();
+  const status = String(errorRecord?.status ?? "");
+
+  if (
+    rpcName &&
+    (status === "404" ||
+      message.includes("pgrst202") ||
+      message.includes("could not find the function") ||
+      message.includes(`function public.${rpcName}`))
+  ) {
+    return "The Supabase database migrations for booking payments and Final Details have not been applied yet. Apply migrations 202610240002_booking_payment_documents.sql and 202610240003_booking_final_details.sql, then reload the admin area.";
+  }
 
   if (message.includes("capacity") || message.includes("no longer available")) {
     return "This event date is no longer available.";
@@ -82,7 +100,7 @@ function actionError(error: unknown) {
     return "Admin authentication is required before this action can be completed.";
   }
 
-  return error instanceof Error ? error.message : "The booking action could not be completed.";
+  return rawMessage || (error instanceof Error ? error.message : "The booking action could not be completed.");
 }
 
 function getRpcRow(data: unknown) {
@@ -131,7 +149,7 @@ export async function confirmBookingWithPaymentAction(
   });
 
   if (result.error) {
-    return { ok: false, message: actionError(result.error) };
+    return { ok: false, message: actionError(result.error, "confirm_booking_with_final_details") };
   }
 
   const row = getRpcRow(result.data);
@@ -190,7 +208,7 @@ export async function amendBookingFinalDetailsAction(
   });
 
   if (result.error) {
-    return { ok: false, message: actionError(result.error) };
+    return { ok: false, message: actionError(result.error, "amend_booking_final_details") };
   }
 
   const row = Array.isArray(result.data)
@@ -244,7 +262,7 @@ export async function recordBookingPaymentAction(
   });
 
   if (result.error || typeof result.data !== "string") {
-    return { ok: false, message: actionError(result.error) };
+    return { ok: false, message: actionError(result.error, "record_booking_payment") };
   }
 
   const paymentId = result.data;
