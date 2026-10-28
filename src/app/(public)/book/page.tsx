@@ -32,8 +32,8 @@ export default async function BookPage({ searchParams }: BookPageProps) {
               <Image
                 src="/brand/logo-transparent.png"
                 alt={`${bookingOptions.data.settings?.business_name ?? "DJC Entertainment"} logo`}
-                width={128}
-                height={64}
+                width={132}
+                height={85}
                 priority
                 className="max-h-6 max-w-6 object-contain brightness-0 invert"
               />

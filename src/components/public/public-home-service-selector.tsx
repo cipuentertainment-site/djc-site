@@ -81,8 +81,8 @@ export function PublicHomeServiceSelector({
             <Image
               src="/brand/logo-transparent.png"
               alt={`${businessName} logo`}
-              width={128}
-              height={64}
+              width={132}
+              height={85}
               priority
               className="max-h-6 max-w-6 object-contain"
             />

@@ -89,7 +89,7 @@ export const termsDocument: LegalDocument = {
       blocks: [
         {
           type: "paragraph",
-          text: "A reservation fee is required when submitting a booking request.",
+          text: "A reservation fee may be required when submitting a booking request.",
         },
         {
           type: "paragraph",
