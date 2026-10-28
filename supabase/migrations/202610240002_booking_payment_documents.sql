@@ -137,6 +137,7 @@ for each row execute function public.set_updated_at();
 alter table public.booking_payments enable row level security;
 alter table public.booking_documents enable row level security;
 
+drop policy if exists "Admins can manage booking payments" on public.booking_payments;
 create policy "Admins can manage booking payments"
 on public.booking_payments
 for all
@@ -144,6 +145,7 @@ to authenticated
 using (public.is_admin())
 with check (public.is_admin());
 
+drop policy if exists "Admins can manage booking documents" on public.booking_documents;
 create policy "Admins can manage booking documents"
 on public.booking_documents
 for all
@@ -165,18 +167,21 @@ set
   file_size_limit = excluded.file_size_limit,
   allowed_mime_types = excluded.allowed_mime_types;
 
+drop policy if exists "Admins can read booking documents" on storage.objects;
 create policy "Admins can read booking documents"
 on storage.objects
 for select
 to authenticated
 using (bucket_id = 'booking-documents' and public.is_admin());
 
+drop policy if exists "Admins can upload booking documents" on storage.objects;
 create policy "Admins can upload booking documents"
 on storage.objects
 for insert
 to authenticated
 with check (bucket_id = 'booking-documents' and public.is_admin());
 
+drop policy if exists "Admins can update booking documents" on storage.objects;
 create policy "Admins can update booking documents"
 on storage.objects
 for update
@@ -184,6 +189,7 @@ to authenticated
 using (bucket_id = 'booking-documents' and public.is_admin())
 with check (bucket_id = 'booking-documents' and public.is_admin());
 
+drop policy if exists "Admins can delete booking documents" on storage.objects;
 create policy "Admins can delete booking documents"
 on storage.objects
 for delete
@@ -280,8 +286,8 @@ begin
 
   select coalesce(sum(amount), 0)::integer
   into existing_total_received
-  from public.booking_payments
-  where booking_id = p_booking_id;
+  from public.booking_payments as bp
+  where bp.booking_id = p_booking_id;
 
   if existing_total_received + p_initial_payment_amount > p_agreed_total_amount then
     raise exception 'payments would exceed the agreed total';
@@ -409,8 +415,8 @@ begin
 
   select coalesce(sum(amount), 0)::integer
   into total_received
-  from public.booking_payments
-  where booking_id = p_booking_id;
+  from public.booking_payments as bp
+  where bp.booking_id = p_booking_id;
 
   if total_received + p_amount > booking_row.agreed_total_amount then
     raise exception 'payment would exceed the agreed total';

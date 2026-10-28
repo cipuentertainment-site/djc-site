@@ -119,8 +119,8 @@ begin
 
   if booking_row.status = 'confirmed' and booking_row.confirmation_idempotency_key = p_idempotency_key then
     select * into agreement_row
-    from public.booking_final_agreements
-    where booking_id = p_booking_id and is_current = true;
+    from public.booking_final_agreements as bfa
+    where bfa.booking_id = p_booking_id and bfa.is_current = true;
 
     select id into existing_payment_id
     from public.booking_payments
@@ -194,8 +194,8 @@ begin
   end if;
 
   select coalesce(sum(amount), 0)::integer into existing_total_received
-  from public.booking_payments
-  where booking_id = p_booking_id;
+  from public.booking_payments as bp
+  where bp.booking_id = p_booking_id;
 
   if p_initial_payment_amount is null or p_initial_payment_amount < 0 then
     raise exception 'initial payment cannot be negative';
@@ -360,11 +360,18 @@ begin
   end loop;
 
   if final_total <= 0 or final_total > 2147483647 then raise exception 'final service total must be greater than zero'; end if;
-  select coalesce(sum(amount), 0)::integer into payments_received from public.booking_payments where booking_id = p_booking_id;
+  select coalesce(sum(amount), 0)::integer into payments_received
+  from public.booking_payments as bp
+  where bp.booking_id = p_booking_id;
   if final_total < payments_received then raise exception 'final total cannot be less than payments already received'; end if;
 
-  select * into previous_agreement from public.booking_final_agreements where booking_id = p_booking_id and is_current = true for update;
-  select coalesce(max(version), 0) + 1 into next_version from public.booking_final_agreements where booking_id = p_booking_id;
+  select * into previous_agreement
+  from public.booking_final_agreements as bfa
+  where bfa.booking_id = p_booking_id and bfa.is_current = true
+  for update;
+  select coalesce(max(bfa.version), 0) + 1 into next_version
+  from public.booking_final_agreements as bfa
+  where bfa.booking_id = p_booking_id;
   if previous_agreement.id is not null then
     update public.booking_final_agreements set is_current = false where id = previous_agreement.id;
   end if;
