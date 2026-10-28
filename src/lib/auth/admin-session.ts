@@ -60,14 +60,19 @@ export async function setAdminVerifiedSession(payload: AdminSessionPayload) {
     httpOnly: true,
     sameSite: "lax",
     secure: process.env.NODE_ENV === "production",
-    path: "/admin",
+    // The verified session is also required by protected /api/admin routes,
+    // including document downloads.
+    path: "/",
     maxAge: 60 * 60 * 8,
   });
 }
 
 export async function clearAdminVerifiedSession() {
   const cookieStore = await cookies();
-  cookieStore.delete(cookieName);
+  // Remove both the current root-scoped cookie and the older /admin-scoped
+  // cookie so existing sessions do not leave a stale duplicate behind.
+  cookieStore.set(cookieName, "", { path: "/", maxAge: 0 });
+  cookieStore.set(cookieName, "", { path: "/admin", maxAge: 0 });
 }
 
 export async function getAdminVerifiedSession() {
