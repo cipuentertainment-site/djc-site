@@ -437,8 +437,6 @@ export const privacyDocument: LegalDocument = {
           type: "list",
           items: [
             "Event personnel",
-            "DJs",
-            "MCs",
             "Sound service providers",
             "Other entertainment service providers",
             "Payment providers",
