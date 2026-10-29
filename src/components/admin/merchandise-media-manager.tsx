@@ -585,7 +585,9 @@ function MerchandiseRequestKpis({
         </p>
         <p className="mt-1 text-xl font-bold leading-none">{totalRequests}</p>
       </div>
-      {products.map((product) => (
+      {products
+        .filter((product) => product.is_active !== false)
+        .map((product) => (
         <div key={product.id} className="rounded-lg border bg-card px-3 py-2.5">
           <p className="truncate text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
             {product.name}
@@ -595,7 +597,7 @@ function MerchandiseRequestKpis({
           </p>
           <p className="mt-1 text-[10px] text-muted-foreground">open</p>
         </div>
-      ))}
+        ))}
     </div>
   );
 }
