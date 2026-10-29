@@ -107,7 +107,12 @@ export function MerchandiseMediaManager({ data }: MerchandiseMediaManagerProps) 
       </TabsContent>
 
       <TabsContent value="requests">
-        <MerchandiseRequestsTable requests={data.merchandiseRequests} />
+        <MerchandiseRequestsTable
+          requests={data.merchandiseRequests}
+          products={data.merchandiseProducts}
+          totalRequests={data.merchandiseRequestTotal}
+          uncompletedByProduct={data.merchandiseUncompletedByProduct}
+        />
       </TabsContent>
     </Tabs>
   );
@@ -460,82 +465,138 @@ function MerchandiseProductForm({
   );
 }
 
-function MerchandiseRequestsTable({ requests }: { requests: MerchandiseRequest[] }) {
+function MerchandiseRequestsTable({
+  requests,
+  products,
+  totalRequests,
+  uncompletedByProduct,
+}: {
+  requests: MerchandiseRequest[];
+  products: MerchandiseProduct[];
+  totalRequests: number;
+  uncompletedByProduct: Record<string, number>;
+}) {
   if (!requests.length) {
     return (
-      <p className="rounded-lg border bg-card p-4 text-sm text-muted-foreground">
-        No merchandise requests yet.
-      </p>
+      <div className="space-y-3">
+        <MerchandiseRequestKpis
+          products={products}
+          totalRequests={totalRequests}
+          uncompletedByProduct={uncompletedByProduct}
+        />
+        <p className="rounded-lg border bg-card p-4 text-sm text-muted-foreground">
+          No merchandise requests yet.
+        </p>
+      </div>
     );
   }
 
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle>Merchandise requests</CardTitle>
-        <CardDescription>Newest requests appear first.</CardDescription>
-      </CardHeader>
-      <CardContent>
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead>Product</TableHead>
-              <TableHead>Customer</TableHead>
-              <TableHead>Details</TableHead>
-              <TableHead>Status</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {requests.map((request) => (
-              <TableRow
-                key={request.id}
-                className={cn(request.status === "new" && "bg-secondary/15")}
-              >
-                <TableCell>
-                  <div className="font-medium">{request.product_name_snapshot}</div>
-                  <div className="text-xs text-muted-foreground">
-                    {formatMoney(
-                      request.product_price_amount_snapshot,
-                      request.currency,
-                    )}
-                  </div>
-                </TableCell>
-                <TableCell>
-                  <div>{request.customer_name}</div>
-                  <a
-                    href={`https://wa.me/${request.customer_phone}`}
-                    target="_blank"
-                    rel="noreferrer"
-                    className="text-xs font-medium text-primary hover:underline"
-                  >
-                    {request.customer_phone}
-                  </a>
-                </TableCell>
-                <TableCell className="text-sm">
-                  <div>Qty {request.quantity}</div>
-                  <div className="text-xs text-muted-foreground">
-                    {request.selected_colour ?? "No colour selected"}
-                  </div>
-                  <div className="text-xs text-muted-foreground">
-                    {request.selected_size
-                      ? request.selected_size === "one_size_fits_all"
-                        ? "One size fits all"
-                        : request.selected_size.toUpperCase()
-                      : "No size selected"}
-                  </div>
-                  <div className="text-xs text-muted-foreground">
-                    {new Date(request.created_at).toLocaleString("en-KE")}
-                  </div>
-                </TableCell>
-                <TableCell>
-                  <RequestStatusControl request={request} />
-                </TableCell>
+    <div className="space-y-3">
+      <MerchandiseRequestKpis
+        products={products}
+        totalRequests={totalRequests}
+        uncompletedByProduct={uncompletedByProduct}
+      />
+      <Card>
+        <CardHeader>
+          <CardTitle>Merchandise requests</CardTitle>
+          <CardDescription>Newest requests appear first.</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Product</TableHead>
+                <TableHead>Customer</TableHead>
+                <TableHead>Details</TableHead>
+                <TableHead>Status</TableHead>
               </TableRow>
-            ))}
-          </TableBody>
-        </Table>
-      </CardContent>
-    </Card>
+            </TableHeader>
+            <TableBody>
+              {requests.map((request) => (
+                <TableRow
+                  key={request.id}
+                  className={cn(request.status === "new" && "bg-secondary/15")}
+                >
+                  <TableCell>
+                    <div className="font-medium">{request.product_name_snapshot}</div>
+                    <div className="text-xs text-muted-foreground">
+                      {formatMoney(
+                        request.product_price_amount_snapshot,
+                        request.currency,
+                      )}
+                    </div>
+                  </TableCell>
+                  <TableCell>
+                    <div>{request.customer_name}</div>
+                    <a
+                      href={`https://wa.me/${request.customer_phone}`}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="text-xs font-medium text-primary hover:underline"
+                    >
+                      {request.customer_phone}
+                    </a>
+                  </TableCell>
+                  <TableCell className="text-sm">
+                    <div>Qty {request.quantity}</div>
+                    <div className="text-xs text-muted-foreground">
+                      {request.selected_colour ?? "No colour selected"}
+                    </div>
+                    <div className="text-xs text-muted-foreground">
+                      {request.selected_size
+                        ? request.selected_size === "one_size_fits_all"
+                          ? "One size fits all"
+                          : request.selected_size.toUpperCase()
+                        : "No size selected"}
+                    </div>
+                    <div className="text-xs text-muted-foreground">
+                      {new Date(request.created_at).toLocaleString("en-KE")}
+                    </div>
+                  </TableCell>
+                  <TableCell>
+                    <RequestStatusControl request={request} />
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        </CardContent>
+      </Card>
+    </div>
+  );
+}
+
+function MerchandiseRequestKpis({
+  products,
+  totalRequests,
+  uncompletedByProduct,
+}: {
+  products: MerchandiseProduct[];
+  totalRequests: number;
+  uncompletedByProduct: Record<string, number>;
+}) {
+  return (
+    <div className="grid grid-cols-2 gap-2 sm:grid-cols-4 lg:grid-cols-6">
+      <div className="rounded-lg border bg-card px-3 py-2.5">
+        <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
+          All requests
+        </p>
+        <p className="mt-1 text-xl font-bold leading-none">{totalRequests}</p>
+      </div>
+      {products.map((product) => (
+        <div key={product.id} className="rounded-lg border bg-card px-3 py-2.5">
+          <p className="truncate text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
+            {product.name}
+          </p>
+          <p className="mt-1 text-xl font-bold leading-none">
+            {uncompletedByProduct[product.id] ?? 0}
+          </p>
+          <p className="mt-1 text-[10px] text-muted-foreground">open</p>
+        </div>
+      ))}
+    </div>
   );
 }
 

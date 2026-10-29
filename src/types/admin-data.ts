@@ -206,4 +206,6 @@ export type AdminMerchandiseMediaData = {
   portfolioItems: PortfolioItem[];
   merchandiseProducts: MerchandiseProduct[];
   merchandiseRequests: MerchandiseRequest[];
+  merchandiseRequestTotal: number;
+  merchandiseUncompletedByProduct: Record<string, number>;
 };

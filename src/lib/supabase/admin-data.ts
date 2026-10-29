@@ -891,6 +891,8 @@ export async function getAdminMerchandiseMediaData(): Promise<
     portfolioItems: [],
     merchandiseProducts: [],
     merchandiseRequests: [],
+    merchandiseRequestTotal: 0,
+    merchandiseUncompletedByProduct: {},
   };
   const client = await getAdminClient(empty);
 
@@ -911,7 +913,10 @@ export async function getAdminMerchandiseMediaData(): Promise<
       .order("name"),
     client.supabase
       .from("merchandise_requests")
-      .select("id,product_id,product_name_snapshot,product_price_amount_snapshot,currency,selected_colour,selected_size,quantity,customer_name,customer_phone,status,created_at,updated_at")
+      .select(
+        "id,product_id,product_name_snapshot,product_price_amount_snapshot,currency,selected_colour,selected_size,quantity,customer_name,customer_phone,status,created_at,updated_at",
+        { count: "exact" },
+      )
       .order("created_at", { ascending: false })
       .limit(100),
   ]);
@@ -923,6 +928,23 @@ export async function getAdminMerchandiseMediaData(): Promise<
   }
 
   const merchandiseProducts = (merchandise.data as MerchandiseProduct[] | null) ?? [];
+  const productRequestCounts = await Promise.all(
+    merchandiseProducts.map(async (product) => {
+      const result = await client.supabase
+        .from("merchandise_requests")
+        .select("id", { count: "exact", head: true })
+        .eq("product_id", product.id)
+        .neq("status", "completed");
+
+      return { productId: product.id, count: result.count ?? 0, error: result.error };
+    }),
+  );
+  const productRequestError = productRequestCounts.find((item) => item.error)?.error;
+
+  if (productRequestError) {
+    return classifyError(productRequestError.message, empty);
+  }
+
   const productImages = await getAdminMerchandiseProductImages(
     client.supabase,
     merchandiseProducts.map((product) => product.id),
@@ -932,6 +954,10 @@ export async function getAdminMerchandiseMediaData(): Promise<
     portfolioItems: (portfolio.data as PortfolioItem[] | null) ?? [],
     merchandiseProducts: attachMerchandiseImages(merchandiseProducts, productImages),
     merchandiseRequests: (requests.data as MerchandiseRequest[] | null) ?? [],
+    merchandiseRequestTotal: requests.count ?? 0,
+    merchandiseUncompletedByProduct: Object.fromEntries(
+      productRequestCounts.map((item) => [item.productId, item.count]),
+    ),
   });
 }
 
